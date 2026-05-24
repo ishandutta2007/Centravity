@@ -1,0 +1,51 @@
+{
+  "name": "opengravity-engine",
+  "version": "0.1.0",
+  "description": "Open-Antigravity Core Engine — Universal AI Agent Orchestrator with Formal Verification",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "opengravity": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "cli": "tsx src/cli.ts",
+    "server": "tsx src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@fastify/websocket": "^11.0.2",
+    "@google/generative-ai": "^0.24.0",
+    "@libsql/client": "^0.17.3",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "fastify": "^5.2.1",
+    "glob": "^11.0.1",
+    "nanoid": "^5.1.2",
+    "openai": "^4.82.0",
+    "ora": "^8.2.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "uuid": "^14.0.0",
+    "yaml": "^2.7.0",
+    "z3-solver": "^4.16.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
+}

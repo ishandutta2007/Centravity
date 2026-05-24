@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.db
+*.db-journal
+workspaces/
+artifacts/
+data/
+*.log
+.DS_Store
+Thumbs.db
