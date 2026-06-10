@@ -8,6 +8,7 @@
 export type AgentState =
   | 'idle'
   | 'planning'
+  | 'waiting_goal_approval'
   | 'executing'
   | 'verifying'
   | 'waiting_feedback'
@@ -254,3 +255,27 @@ export type EngineEvent =
   | { type: 'agent:completed'; agentId: string; summary: string }
   | { type: 'gateway:request'; model: string; tokens: number }
   | { type: 'gateway:response'; model: string; latencyMs: number };
+
+// ── Liquid Working Memory (LWM) Types ──
+
+export interface MemoryNode {
+  id: string;
+  type: 'goal' | 'transient';
+  content: string;
+  activation: number;   // a_i in [0, 1]
+  goalBias: number;     // g_i in [0, 1]
+  decayRate: number;    // gamma_i
+}
+
+export interface MemoryEdge {
+  source: string;
+  target: string;
+  weight: number;       // w_ij in [-1, 1]
+}
+
+export interface TelemetryState {
+  activeFocus: string;
+  activeGoals: string[];
+  cognitiveLoad: number;
+  swarmAttention: Array<{ nodeId: string; activation: number }>;
+}

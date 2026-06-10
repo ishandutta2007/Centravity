@@ -11,6 +11,7 @@ export { PolicyEngine } from './policy/index.js';
 export { Agent } from './orchestrator/agent.js';
 export { loadConfig, getConfig } from './config/index.js';
 export { startServer } from './server.js';
+export { LiquidMemory } from './memory/liquid.js';
 
 // Re-export all types
 export type * from './types/index.js';

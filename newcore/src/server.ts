@@ -92,6 +92,48 @@ export async function startServer(orchestrator?: AgentOrchestrator) {
     return { success: true, message: 'Agent execution rejected.' };
   });
 
+  // ── Liquid Working Memory (LWM) ──
+
+  /** Returns the real-time cognitive telemetry of an agent's LWM. */
+  app.get<{ Params: { id: string } }>('/agents/:id/memory/telemetry', async (req, reply) => {
+    const agent = engine.getAgent(req.params.id);
+    if (!agent) return reply.code(404).send({ error: 'Agent not found' });
+    return {
+      telemetry: agent.memory.getTelemetryState(),
+      nodes: agent.memory.getAllNodes(),
+      edges: agent.memory.getAllEdges(),
+    };
+  });
+
+  /** Approves the agent's goals and resumes execution. */
+  app.post<{ Params: { id: string } }>('/agents/:id/memory/approve', async (req, reply) => {
+    const agent = engine.getAgent(req.params.id);
+    if (!agent) return reply.code(404).send({ error: 'Agent not found' });
+    agent.approveGoals();
+    return { ok: true, status: agent.getStatus() };
+  });
+
+  /** Injects a manual human stimulus into a specific LWM node. */
+  app.post<{ Params: { id: string }; Body: { nodeId: string; intensity: number; content?: string } }>(
+    '/agents/:id/memory/stimulus',
+    async (req, reply) => {
+      const agent = engine.getAgent(req.params.id);
+      if (!agent) return reply.code(404).send({ error: 'Agent not found' });
+
+      const { nodeId, intensity, content } = req.body;
+      if (content) {
+        agent.memory.addNode(nodeId, 'transient', content, 0.0, 0.15);
+      }
+      agent.memory.addStimulus(nodeId, intensity);
+      agent.memory.tick(0.1);
+
+      return {
+        ok: true,
+        telemetry: agent.memory.getTelemetryState(),
+      };
+    }
+  );
+
   // ── Artifacts ──
   app.get<{ Params: { agentId: string } }>('/artifacts/:agentId', async (req) => {
     return engine.getArtifacts().listByAgent(req.params.agentId);

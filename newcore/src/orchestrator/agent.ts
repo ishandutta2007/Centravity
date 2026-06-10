@@ -11,6 +11,7 @@ import type { ArtifactStore } from '../artifacts/index.js';
 import type { AuditLogger } from '../audit/index.js';
 import type { PolicyEngine } from '../policy/index.js';
 import { getDb } from '../db/index.js';
+import { LiquidMemory } from '../memory/liquid.js';
 
 const SYSTEM_PROMPT = `You are an expert software engineering agent in the OpenGravity Engine.
 
@@ -40,6 +41,7 @@ Available tools: read_file, write_file, list_directory, run_command, search_code
 export class Agent extends EventEmitter {
   readonly id: string;
   readonly config: AgentConfig;
+  public readonly memory: LiquidMemory;
   private state: AgentState = 'idle';
   private messages: ChatMessage[] = [];
   private plan: ExecutionPlan | null = null;
@@ -50,6 +52,8 @@ export class Agent extends EventEmitter {
   
   // HitL Control
   private resumeResolver: ((value: boolean) => void) | null = null;
+  private approveGoalsPromise: Promise<void>;
+  private approveGoalsResolver!: () => void;
 
   constructor(
     config: AgentConfig,
@@ -62,7 +66,12 @@ export class Agent extends EventEmitter {
     super();
     this.id = config.id;
     this.config = config;
+    this.memory = new LiquidMemory();
     this.messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+    
+    this.approveGoalsPromise = new Promise<void>((resolve) => {
+      this.approveGoalsResolver = resolve;
+    });
   }
 
   async hydrate(): Promise<void> {
@@ -171,10 +180,25 @@ export class Agent extends EventEmitter {
           this.artifactIds.push(planArtifact.id);
           this.emitEvent({ type: 'agent:artifact_created', agentId: this.id, artifact: planArtifact });
         }
+        
+        // Initialize LWM from the planning goals
+        this.initializeLWMFromPlan(this.plan);
+        
+        // Create and save the goal confirmation artifact
+        const goalConfirmationArtifact = this.createGoalConfirmationArtifact(this.plan);
+        this.artifactIds.push(goalConfirmationArtifact.id);
+        this.emitEvent({ type: 'agent:artifact_created', agentId: this.id, artifact: goalConfirmationArtifact });
+
+        // Suspend execution until the human reviews and approves the goals
+        await this.setState('waiting_goal_approval');
       }
 
-      if (this.state === 'planning' || this.state === 'executing' || this.state === 'waiting_feedback') {
+      if (this.state === 'waiting_goal_approval') {
+        await this.approveGoalsPromise;
         await this.setState('executing');
+      }
+
+      if (this.state === 'executing' || this.state === 'waiting_feedback') {
         await this.executeSteps();
       }
 
@@ -271,6 +295,16 @@ export class Agent extends EventEmitter {
       step.status = 'running';
       this.emitEvent({ type: 'agent:step_started', agentId: this.id, step: step.id, description: step.description });
 
+      // ── LWM: Activate step node before execution ──
+      const stepNodeId = `step:${step.id}`;
+      this.memory.addNode(stepNodeId, 'transient', `Executing: ${step.description}`, 0.0, 0.2);
+      this.memory.addStimulus(stepNodeId, 0.8);
+      if (step.tool) {
+        this.memory.addNode(`tool:${step.tool}`, 'transient', `Using tool: ${step.tool}`, 0.0, 0.25);
+        this.memory.addEdge(stepNodeId, `tool:${step.tool}`, 0.3);
+      }
+      this.memory.tick(0.1);
+
       if (step.tool === 'python_sandbox') {
         await this.setState('waiting_feedback');
         
@@ -285,6 +319,14 @@ export class Agent extends EventEmitter {
         if (!approved) {
           step.result = { success: false, output: '', error: 'Human rejected execution.' };
           step.status = 'failed';
+          
+          // ── LWM: Inject rejection stimulus ──
+          const errorNodeId = `error:step${step.id}`;
+          this.memory.addNode(errorNodeId, 'transient', `FAILED: Human rejected execution for step ${step.id}`, 0.0, 0.08);
+          this.memory.addStimulus(errorNodeId, 1.0);
+          this.memory.addEdge(stepNodeId, errorNodeId, 0.8);
+          this.memory.tick(0.1);
+
           this.emitEvent({ type: 'agent:step_completed', agentId: this.id, step: step.id, result: step.result });
           continue;
         }
@@ -301,6 +343,20 @@ export class Agent extends EventEmitter {
       step.result = result;
       step.status = result.success ? 'completed' : 'failed';
 
+      // ── LWM: Inject outcome stimulus ──
+      if (result.success) {
+        this.memory.addStimulus(stepNodeId, -0.5);
+        this.memory.addNode(`outcome:step${step.id}`, 'transient',
+          `Completed: ${step.description}`, 0.0, 0.3);
+      } else {
+        const errorNodeId = `error:step${step.id}`;
+        this.memory.addNode(errorNodeId, 'transient',
+          `FAILED: ${step.description} — ${(result.error ?? '').slice(0, 200)}`, 0.0, 0.08);
+        this.memory.addStimulus(errorNodeId, 1.0);
+        this.memory.addEdge(stepNodeId, errorNodeId, 0.8);
+      }
+      this.memory.tick(0.1);
+
       this.emitEvent({ type: 'agent:step_completed', agentId: this.id, step: step.id, result });
 
       if (!result.success && this.config.maxRetries > 0) {
@@ -308,8 +364,14 @@ export class Agent extends EventEmitter {
         if (fixed) {
           step.status = 'completed';
           step.result = fixed;
+          // Dampen error node on successful retry
+          this.memory.addStimulus(`error:step${step.id}`, -0.7);
+          this.memory.tick(0.05);
         }
       }
+
+      // Prune message history to prevent context bloat
+      this.pruneMessages();
 
       this.artifacts.createLogArtifact(this.id, `Step ${step.id}: ${step.description}`, 
         `Tool: ${step.tool}\nStatus: ${step.status}\nOutput: ${(step.result?.output ?? '').slice(0, 2000)}\n${step.result?.error ? `Error: ${step.result.error}` : ''}`
@@ -330,7 +392,7 @@ export class Agent extends EventEmitter {
 
     const response = await this.gateway.complete({
       model: this.config.model,
-      messages: this.messages,
+      messages: this.buildMessagesWithLWMContext(),
       tools: toolDefs,
       temperature: 0.2,
       maxTokens: 4096,
@@ -367,7 +429,7 @@ export class Agent extends EventEmitter {
     const toolDefs = this.tools.getDefinitions();
     const response = await this.gateway.complete({
       model: this.config.model,
-      messages: this.messages,
+      messages: this.buildMessagesWithLWMContext(),
       tools: toolDefs,
       temperature: 0.2,
       maxTokens: 4096,
@@ -423,6 +485,124 @@ export class Agent extends EventEmitter {
 
   sendFeedback(feedback: string): void {
     this.messages.push({ role: 'user', content: `[User Feedback]: ${feedback}` });
+    // Inject feedback as a high-intensity stimulus into the LWM
+    const feedbackNodeId = `feedback:${Date.now()}`;
+    this.memory.addNode(feedbackNodeId, 'transient', `User Feedback: ${feedback}`, 0.0, 0.1);
+    this.memory.addStimulus(feedbackNodeId, 0.9);
+    this.memory.tick(0.1);
     this.persist();
+  }
+
+  // ── LWM Integration Methods ──
+
+  /**
+   * Initialize the LWM graph from the execution plan.
+   * Each step becomes a goal node, with edges linking sequential steps.
+   */
+  private initializeLWMFromPlan(plan: ExecutionPlan): void {
+    // Root goal node — the user's original task with maximum anchoring
+    this.memory.addNode('root:task', 'goal', plan.taskDescription, 0.95, 0.005);
+
+    // Create a goal node for each plan step
+    for (const step of plan.steps) {
+      const nodeId = `goal:step${step.id}`;
+      const bias = step.dependsOn.length === 0 ? 0.7 : 0.5;
+      this.memory.addNode(nodeId, 'goal', step.description, bias, 0.02);
+      this.memory.addEdge('root:task', nodeId, 0.6);
+    }
+
+    // Link sequential dependencies
+    for (const step of plan.steps) {
+      for (const depId of step.dependsOn) {
+        this.memory.addEdge(`goal:step${depId}`, `goal:step${step.id}`, 0.4);
+      }
+    }
+
+    this.memory.tick(0.1);
+  }
+
+  /**
+   * Creates a human-readable goal confirmation artifact.
+   * This is presented to the user for review before execution begins.
+   */
+  private createGoalConfirmationArtifact(plan: ExecutionPlan): import('../types/index.js').ArtifactData {
+    const lines: string[] = [
+      `═══ GOAL CONFIRMATION ═══`,
+      ``,
+      `Task: ${plan.taskDescription}`,
+      `Reasoning: ${plan.reasoning}`,
+      `Complexity: ${plan.estimatedComplexity}`,
+      `Steps: ${plan.steps.length}`,
+      ``,
+      `── Planned Steps ──`,
+    ];
+
+    for (const step of plan.steps) {
+      const deps = step.dependsOn.length > 0 ? ` (depends on: ${step.dependsOn.join(', ')})` : '';
+      lines.push(`  ${step.id}. [${step.tool ?? 'llm'}] ${step.description}${deps}`);
+    }
+
+    lines.push(``, `── LWM State ──`);
+    const telemetry = this.memory.getTelemetryState();
+    for (const node of telemetry.swarmAttention.slice(0, 10)) {
+      lines.push(`  • ${node.nodeId} — Activation: ${(node.activation * 100).toFixed(0)}%`);
+    }
+
+    lines.push(``, `═══ Awaiting your approval to proceed. ═══`);
+
+    return this.artifacts.createLogArtifact(this.id, 'Goal Confirmation', lines.join('\n'));
+  }
+
+  /**
+   * Called by the API/CLI to resume agent execution after goal review.
+   * Resolves the internal promise that the run() method is awaiting.
+   */
+  approveGoals(): void {
+    if (this.state !== 'waiting_goal_approval') return;
+    this.audit.log({
+      agentId: this.id,
+      action: 'hitl:goal_approved',
+      target: this.config.task,
+      result: 'success',
+      details: 'Human approved execution goals',
+      durationMs: 0,
+    });
+    this.approveGoalsResolver();
+  }
+
+  /**
+   * Builds a message array with the active LWM context injected
+   * as a dynamic system prompt prefix.
+   */
+  private buildMessagesWithLWMContext(): ChatMessage[] {
+    const lwmContext = this.memory.getLiquidPromptContext();
+    if (!lwmContext) return this.messages;
+
+    // Clone messages and prepend LWM context to the system prompt
+    const result = [...this.messages];
+    const systemIdx = result.findIndex(m => m.role === 'system');
+    if (systemIdx >= 0) {
+      result[systemIdx] = {
+        ...result[systemIdx],
+        content: result[systemIdx].content + '\n\n' + lwmContext,
+      };
+    } else {
+      result.unshift({ role: 'system', content: lwmContext });
+    }
+    return result;
+  }
+
+  /**
+   * Prunes the message history to prevent unbounded context growth.
+   * Retains the system prompt, the last N user/assistant exchanges,
+   * and all tool-call messages from the current step.
+   */
+  private pruneMessages(): void {
+    const MAX_HISTORY = 12; // Keep last 12 messages beyond the system prompt
+    if (this.messages.length <= MAX_HISTORY + 1) return;
+
+    const systemMessage = this.messages[0]; // Always preserve
+    const recentMessages = this.messages.slice(-(MAX_HISTORY));
+    this.messages = [systemMessage, ...recentMessages];
   }
 }
