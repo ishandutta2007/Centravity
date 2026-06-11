@@ -15,6 +15,9 @@
     <a href="#"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge"></a>
     <a href="#"><img alt="Contributions Welcome" src="https://img.shields.io/badge/contributions-welcome-orange?style=for-the-badge"></a>
     <a href="#"><img alt="Discord" src="https://img.shields.io/discord/123456789?label=discord&style=for-the-badge&logo=discord"></a>
+    <a href="https://github.com/ishandutta2007">
+      <img alt="GitHub followers" src="https://img.shields.io/github/followers/ishandutta2007?label=Follow&style=for-the-badge&logo=github&logoColor=white" alt="Github"/>
+    </a>
   </p>
 </div>
 
