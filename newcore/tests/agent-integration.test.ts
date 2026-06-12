@@ -2,9 +2,10 @@
 // OpenCentravity — Agent Integration Test Suite (LWM Lifecycle)
 // ═══════════════════════════════════════════════════════════════
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { AgentOrchestrator } from '../src/orchestrator/index.js';
 import { loadConfig } from '../src/config/index.js';
+import { resetForTests, getDb } from '../src/db/index.js';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
@@ -21,6 +22,11 @@ describe('Agent LWM Integration', () => {
       workspaceRoot: './workspaces',
       artifactsDir: './artifacts',
     });
+  });
+
+  beforeEach(async () => {
+    await resetForTests();
+    await getDb();
   });
 
   it('should run the agent lifecycle through the LWM goal approval gate', async () => {

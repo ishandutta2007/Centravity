@@ -73,16 +73,27 @@ export class FileSystemTool implements Tool {
       } else {
         const dir = dirname(fullPath);
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        const content = input.content as string;
-        const append = input.append as boolean | undefined;
-        if (append) {
-          const existing = existsSync(fullPath) ? readFileSync(fullPath, 'utf-8') : '';
-          writeFileSync(fullPath, existing + content, 'utf-8');
-        } else {
-          writeFileSync(fullPath, content, 'utf-8');
+
+        // Collision Avoidance Lock
+        if (context.fileLocks.has(fullPath)) {
+            return { success: false, output: '', error: `File is currently locked by another process: ${fullPath}` };
         }
-        const relPath = relative(context.workspaceDir, fullPath);
-        return { success: true, output: `File written: ${relPath} (${content.length} bytes)` };
+        context.fileLocks.add(fullPath);
+
+        try {
+          const content = input.content as string;
+          const append = input.append as boolean | undefined;
+          if (append) {
+            const existing = existsSync(fullPath) ? readFileSync(fullPath, 'utf-8') : '';
+            writeFileSync(fullPath, existing + content, 'utf-8');
+          } else {
+            writeFileSync(fullPath, content, 'utf-8');
+          }
+          const relPath = relative(context.workspaceDir, fullPath);
+          return { success: true, output: `File written: ${relPath} (${content.length} bytes)` };
+        } finally {
+          context.fileLocks.delete(fullPath);
+        }
       }
     } catch (err) {
       return { success: false, output: '', error: err instanceof Error ? err.message : String(err) };

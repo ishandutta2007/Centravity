@@ -25,6 +25,13 @@ export interface AgentConfig {
   timeoutMs: number;
   tools: string[];
   policyOverrides?: Record<string, boolean>;
+  // ── v0.2.0 multi-agent extensions (all optional) ──
+  /** If set, this agent is a sub-agent of the given parent. */
+  parentId?: string | null;
+  /** If set, this agent belongs to a swarm (team of agents). */
+  swarmId?: string | null;
+  /** Role of the agent: 'coder' | 'verifier' | 'researcher' | 'planner' | 'tester' | 'custom'. Defaults to 'coder'. */
+  role?: string;
 }
 
 export interface AgentStatus {
@@ -38,6 +45,17 @@ export interface AgentStatus {
   startedAt: number;
   updatedAt: number;
   error?: string;
+  // ── v0.2.0 multi-agent fields (all optional) ──
+  parentId?: string | null;
+  swarmId?: string | null;
+  role?: string;
+  /** Cost summary for this agent (populated by the cost recorder). */
+  cost?: {
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalCostUsd: number;
+    callCount: number;
+  };
 }
 
 // ── LLM / Gateway Types ──
@@ -144,11 +162,26 @@ export interface Tool {
   execute(input: ToolInput, context: ToolContext): Promise<ToolResult>;
 }
 
+export interface WhiteboardMessage {
+  fromAgentId: string;
+  toAgentId: string;
+  content: string;
+  timestamp: number;
+}
+
+export interface Whiteboard {
+  postMessage(message: Omit<WhiteboardMessage, 'timestamp'>): void;
+  getMessages(agentId: string): WhiteboardMessage[];
+  clear(agentId: string): void;
+}
+
 export interface ToolContext {
   workspaceDir: string;
   agentId: string;
   policyEngine: PolicyChecker;
   auditLog: AuditWriter;
+  fileLocks: Set<string>;
+  whiteboard: Whiteboard;
 }
 
 // ── Policy Types ──
@@ -189,6 +222,11 @@ export interface ArtifactData {
   content: string;
   metadata: Record<string, unknown>;
   createdAt: number;
+  // ── v0.2.0 fields (all optional) ──
+  /** If set, this artifact is shared with a swarm. */
+  swarmId?: string | null;
+  /** 'private' (default) | 'swarm' | 'public'. */
+  visibility?: 'private' | 'swarm' | 'public';
 }
 
 // ── Audit Types ──
@@ -206,6 +244,20 @@ export interface AuditEntry {
 
 export interface AuditWriter {
   log(entry: Omit<AuditEntry, 'id' | 'timestamp'>): void;
+}
+
+// ── v0.2.0 AuditEntry extensions ───────────────────────────────
+// New audit entries can omit agentId (for engine-level events)
+// and have a `swarmId` field. The DB-backed audit_v2 table
+// supports this; the v0.1.0 AuditEntry type is kept for
+// backward compat with anything that imports it.
+export interface AuditEntryV2 extends Omit<AuditEntry, 'agentId'> {
+  agentId?: string | null;
+  swarmId?: string | null;
+}
+
+export interface AuditWriterV2 {
+  log(entry: Omit<AuditEntryV2, 'id' | 'timestamp'>): void;
 }
 
 // ── Execution Plan Types ──

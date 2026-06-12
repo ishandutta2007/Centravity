@@ -24,6 +24,7 @@
     "@google/generative-ai": "^0.24.0",
     "@libsql/client": "^0.17.3",
     "chalk": "^5.4.1",
+    "chokidar": "^5.0.0",
     "commander": "^13.1.0",
     "fastify": "^5.2.1",
     "glob": "^11.0.1",
@@ -38,6 +39,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/chokidar": "^1.7.5",
     "@types/node": "^22.13.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.0",

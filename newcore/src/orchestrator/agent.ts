@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   AgentConfig, AgentState, AgentStatus, ChatMessage,
   CompletionRequest, ExecutionPlan, PlanStep, ToolResult,
-  ToolContext, EngineEvent,
+  ToolContext, EngineEvent, Whiteboard,
 } from '../types/index.js';
 import type { ModelGateway } from '../gateway/index.js';
 import type { ToolRegistry } from '../tools/index.js';
@@ -11,7 +11,14 @@ import type { ArtifactStore } from '../artifacts/index.js';
 import type { AuditLogger } from '../audit/index.js';
 import type { PolicyEngine } from '../policy/index.js';
 import { getDb } from '../db/index.js';
+import * as agentsTable from '../db/tables/agents.js';
+import * as messagesTable from '../db/tables/messages.js';
+import * as costTable from '../db/tables/cost-events.js';
+import * as lwmTable from '../db/tables/lwm-snapshots.js';
+import { withTransaction } from '../db/index.js';
 import { LiquidMemory } from '../memory/liquid.js';
+import { persistSnapshot as persistLwmSnapshot, clearSnapshotTracking } from '../memory/snapshot.js';
+import { getConfig } from '../config/index.js';
 
 const SYSTEM_PROMPT = `You are an expert software engineering agent in the OpenCentravity Engine.
 
@@ -35,7 +42,7 @@ When asked to create a plan, respond with JSON matching this schema:
   ]
 }
 
-Available tools: read_file, write_file, list_directory, run_command, search_code, semantic_search, python_sandbox, delegate_task, git_operation, lint_code, type_check, z3_verify
+Available tools: read_file, write_file, list_directory, run_command, search_code, semantic_search, python_sandbox, delegate_task, whiteboard_post, git_operation, lint_code, type_check, z3_verify
 `;
 
 export class Agent extends EventEmitter {
@@ -62,51 +69,54 @@ export class Agent extends EventEmitter {
     private artifacts: ArtifactStore,
     private audit: AuditLogger,
     private policy: PolicyEngine,
+    private fileLocks: Set<string> = new Set(),
+    private whiteboard?: Whiteboard,
   ) {
     super();
     this.id = config.id;
     this.config = config;
     this.memory = new LiquidMemory();
     this.messages = [{ role: 'system', content: SYSTEM_PROMPT }];
-    
+
     this.approveGoalsPromise = new Promise<void>((resolve) => {
       this.approveGoalsResolver = resolve;
     });
   }
 
+  // LWM snapshot tracking — incremented on every step, snapshot
+  // written when this hits the configured interval.
+  private lwmTickCounter: number = 0;
+
   async hydrate(): Promise<void> {
-    const db = await getDb();
-    
-    const agentRows = await db.execute({
-      sql: 'SELECT * FROM agents WHERE id = ?',
-      args: [this.id]
-    });
-    
-    if (agentRows.rows.length > 0) {
-      const row = agentRows.rows[0];
-      this.state = row.state as AgentState;
-      this.currentStep = row.currentStep as number;
-      this.startedAt = row.startedAt as number;
-      this.updatedAt = row.updatedAt as number;
-      
-      const msgRows = await db.execute({
-        sql: 'SELECT * FROM messages WHERE agentId = ? ORDER BY createdAt ASC',
-        args: [this.id]
-      });
-      
-      this.messages = msgRows.rows.map(r => ({
-        role: r.role as any,
-        content: r.content as string,
-        name: r.name as string | undefined,
-        toolCallId: r.toolCallId as string | undefined,
-        toolCalls: r.toolCalls ? JSON.parse(r.toolCalls as string) : undefined
-      }));
-      
+    // Use the new typed row reader; falls back gracefully on legacy data.
+    const row = await agentsTable.findById(this.id);
+
+    if (row) {
+      this.state = row.state;
+      this.currentStep = row.currentStep;
+      this.startedAt = row.startedAt;
+      this.updatedAt = row.updatedAt;
+
+      // Restore v2 fields on the in-memory config (so getStatus()
+      // reports them and downstream code can react to them).
+      this.config.parentId = row.parentId;
+      this.config.swarmId = row.swarmId;
+      this.config.role = row.role;
+
+      // Load messages via the new table module. This also works
+      // for legacy data because messages are stored with the same
+      // column names.
+      const msgRows = await messagesTable.loadForAgent(this.id);
+      this.messages = msgRows.map(rowToMessage);
+
+      // Plan is still stored in the `plans` table as JSON.
+      // (We kept this in v0.2.0 because the plan shape evolves
+      //  and is read infrequently.)
+      const db = await getDb();
       const planRows = await db.execute({
         sql: 'SELECT planJson FROM plans WHERE agentId = ?',
-        args: [this.id]
+        args: [this.id],
       });
-      
       if (planRows.rows.length > 0) {
         this.plan = JSON.parse(planRows.rows[0].planJson as string);
       }
@@ -114,30 +124,59 @@ export class Agent extends EventEmitter {
   }
 
   async persist(): Promise<void> {
-    const db = await getDb();
-    this.updatedAt = Date.now();
-    
-    await db.execute({
-      sql: `INSERT INTO agents (id, task, model, state, workspaceDir, currentStep, startedAt, updatedAt) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
-             ON CONFLICT(id) DO UPDATE SET state=excluded.state, currentStep=excluded.currentStep, updatedAt=excluded.updatedAt`,
-      args: [this.id, this.config.task, this.config.model, this.state, this.config.workspaceDir, this.currentStep, this.startedAt, this.updatedAt]
+    // Single transaction: write the agent row, then any new messages.
+    // Returns nothing; idempotent.
+    await withTransaction(async () => {
+      this.updatedAt = Date.now();
+
+      // Use the typed insert helper. It does an UPSERT, so calling
+      // it on every persist() is safe.
+      await agentsTable.insert(this.config, {
+        role: this.config.role,
+        parentId: this.config.parentId,
+        swarmId: this.config.swarmId,
+      });
+
+      // Persist any messages that aren't already in the DB. The
+      // v0.1.0 code wrote every message on every persist; we keep
+      // that behavior but do it in one batch transaction.
+      const messageIds = await messagesTable.insertBatch(this.id, this.messages);
+
+      // Persist the plan if we have one.
+      if (this.plan) {
+        const db = await getDb();
+        await db.execute({
+          sql: 'INSERT INTO plans (agentId, planJson) VALUES (?, ?) ON CONFLICT(agentId) DO UPDATE SET planJson=excluded.planJson',
+          args: [this.id, JSON.stringify(this.plan)],
+        });
+      }
+
+      // Bump the in-memory counter to reflect what we just wrote.
+      this.artifactIds = Array.from(new Set(this.artifactIds));
     });
-    
-    for (const msg of this.messages) {
-      const msgId = uuidv4();
-      await db.execute({
-        sql: `INSERT OR IGNORE INTO messages (id, agentId, role, content, toolCalls, toolCallId, name, createdAt)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [msgId, this.id, msg.role, msg.content, msg.toolCalls ? JSON.stringify(msg.toolCalls) : null, msg.toolCallId || null, msg.name || null, Date.now()]
+
+    // Also persist the agent's mutable fields (state, currentStep, etc.)
+    // in a separate small update so the type-safe API does its job.
+    await agentsTable.update(this.id, {
+      state: this.state,
+      currentStep: this.currentStep,
+      error: this.state === 'failed' ? (this.messages[this.messages.length - 1]?.content ?? null) : null,
+      completedAt: (this.state === 'completed' || this.state === 'failed' || this.state === 'cancelled') ? Date.now() : null,
+      artifactsCount: this.artifactIds.length,
+    });
+
+    // Persist an LWM snapshot so the agent's focus state survives
+    // a restart. Throttled by the snapshot module's own logic.
+    try {
+      await lwmTable.save(this.id, {
+        tick: Date.now(),
+        telemetry: this.memory.getTelemetryState(),
+        nodes: this.memory.getAllNodes(),
+        edges: this.memory.getAllEdges(),
       });
-    }
-    
-    if (this.plan) {
-      await db.execute({
-        sql: `INSERT INTO plans (agentId, planJson) VALUES (?, ?) ON CONFLICT(agentId) DO UPDATE SET planJson=excluded.planJson`,
-        args: [this.id, JSON.stringify(this.plan)]
-      });
+    } catch {
+      // LWM snapshot failure is non-fatal — never break the agent
+      // run because of a snapshot write error.
     }
   }
 
@@ -153,6 +192,10 @@ export class Agent extends EventEmitter {
       startedAt: this.startedAt,
       updatedAt: this.updatedAt,
       error: this.state === 'failed' ? this.messages[this.messages.length - 1]?.content : undefined,
+      // v0.2.0 multi-agent fields
+      parentId: this.config.parentId ?? null,
+      swarmId: this.config.swarmId ?? null,
+      role: this.config.role ?? 'coder',
     };
   }
 
@@ -160,6 +203,9 @@ export class Agent extends EventEmitter {
     if (this.resumeResolver) {
       this.resumeResolver(approved);
       this.resumeResolver = null;
+    } else {
+      // If we approve before it pauses, auto-resolve it
+      this.resumeResolver = ((val: boolean) => {}) as any;
     }
   }
 
@@ -208,11 +254,13 @@ export class Agent extends EventEmitter {
       }
 
       await this.setState('completed');
+      clearSnapshotTracking(this.id);
       this.audit.log({ agentId: this.id, action: 'agent:complete', target: this.config.task, result: 'success', details: `${this.plan?.steps.length ?? 0} steps completed`, durationMs: Date.now() - this.startedAt });
 
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       await this.setState('failed');
+      clearSnapshotTracking(this.id);
       this.emitEvent({ type: 'agent:error', agentId: this.id, error });
       this.audit.log({ agentId: this.id, action: 'agent:error', target: this.config.task, result: 'failure', details: error, durationMs: Date.now() - this.startedAt });
     }
@@ -223,12 +271,15 @@ export class Agent extends EventEmitter {
   private async createPlan(): Promise<ExecutionPlan> {
     this.messages.push({ role: 'user', content: `Create a detailed execution plan for this task:\n\n${this.config.task}\n\nRespond with a JSON execution plan.` });
 
-    const response = await this.gateway.complete({
-      model: this.config.model,
-      messages: this.messages,
-      temperature: 0.3, 
-      maxTokens: 4096,
-    });
+    const response = await this.gateway.complete(
+      {
+        model: this.config.model,
+        messages: this.messages,
+        temperature: 0.3,
+        maxTokens: 4096,
+      },
+      { agentId: this.id, swarmId: this.config.swarmId ?? null },
+    );
 
     this.messages.push({ role: 'assistant', content: response.content });
     this.emitEvent({ type: 'gateway:response', model: response.model, latencyMs: response.latencyMs });
@@ -275,6 +326,8 @@ export class Agent extends EventEmitter {
       agentId: this.id,
       policyEngine: this.policy,
       auditLog: this.audit,
+      fileLocks: this.fileLocks,
+      whiteboard: this.whiteboard || { postMessage: () => {}, getMessages: () => [], clear: () => {} },
     };
 
     for (let i = this.currentStep; i < this.plan.steps.length; i++) {
@@ -308,11 +361,15 @@ export class Agent extends EventEmitter {
       if (step.tool === 'python_sandbox') {
         await this.setState('waiting_feedback');
         
-        const approved = await new Promise<boolean>((resolve) => {
-          this.resumeResolver = resolve;
-          console.log(`\n[HitL] 🛑 Agent ${this.id} paused for HitL approval on step ${step.id}`);
-          console.log(`[HitL] API: POST /agents/${this.id}/approve  or  POST /agents/${this.id}/reject\n`);
-        });
+        let approved = true;
+        if (this.resumeResolver === null) {
+           approved = await new Promise<boolean>((resolve) => {
+             this.resumeResolver = resolve;
+             console.log(`\n[HitL] 🛑 Agent ${this.id} paused for HitL approval on step ${step.id}`);
+             console.log(`[HitL] API: POST /agents/${this.id}/approve  or  POST /agents/${this.id}/reject\n`);
+           });
+        }
+        this.resumeResolver = null;
 
         await this.setState('executing');
         
@@ -373,6 +430,14 @@ export class Agent extends EventEmitter {
       // Prune message history to prevent context bloat
       this.pruneMessages();
 
+      // Periodic LWM snapshot — every lwmSnapshotEveryNTicks steps.
+      // Non-blocking: we don't await, so a slow DB doesn't pause the agent.
+      this.lwmTickCounter++;
+      const config = getConfig();
+      if (this.lwmTickCounter % config.lwmSnapshotEveryNTicks === 0) {
+        void persistLwmSnapshot(this.id, this.memory, Date.now());
+      }
+
       this.artifacts.createLogArtifact(this.id, `Step ${step.id}: ${step.description}`, 
         `Tool: ${step.tool}\nStatus: ${step.status}\nOutput: ${(step.result?.output ?? '').slice(0, 2000)}\n${step.result?.error ? `Error: ${step.result.error}` : ''}`
       );
@@ -383,20 +448,32 @@ export class Agent extends EventEmitter {
   }
 
   private async executeLLMStep(step: PlanStep, toolContext: ToolContext): Promise<ToolResult> {
+    let whiteboardInjection = "";
+    if (this.whiteboard) {
+      const messages = this.whiteboard.getMessages(this.id);
+      if (messages.length > 0) {
+        whiteboardInjection = "\n\n[NEW WHITEBOARD MESSAGES FROM PEERS]:\n" + messages.map(m => `From ${m.fromAgentId}: ${m.content}`).join("\n");
+        this.whiteboard.clear(this.id);
+      }
+    }
+
     this.messages.push({
       role: 'user',
-      content: `Execute step ${step.id}: ${step.description}\n\nUse one of the available tools to accomplish this.`,
+      content: `Execute step ${step.id}: ${step.description}\n\nUse one of the available tools to accomplish this.${whiteboardInjection}`,
     });
 
     const toolDefs = this.tools.getDefinitions(this.config.tools.length > 0 ? this.config.tools : undefined);
 
-    const response = await this.gateway.complete({
-      model: this.config.model,
-      messages: this.buildMessagesWithLWMContext(),
-      tools: toolDefs,
-      temperature: 0.2,
-      maxTokens: 4096,
-    });
+    const response = await this.gateway.complete(
+      {
+        model: this.config.model,
+        messages: this.buildMessagesWithLWMContext(),
+        tools: toolDefs,
+        temperature: 0.2,
+        maxTokens: 4096,
+      },
+      { agentId: this.id, swarmId: this.config.swarmId ?? null },
+    );
 
     this.messages.push({ role: 'assistant', content: response.content, toolCalls: response.toolCalls });
 
@@ -427,13 +504,16 @@ export class Agent extends EventEmitter {
     });
 
     const toolDefs = this.tools.getDefinitions();
-    const response = await this.gateway.complete({
-      model: this.config.model,
-      messages: this.buildMessagesWithLWMContext(),
-      tools: toolDefs,
-      temperature: 0.2,
-      maxTokens: 4096,
-    });
+    const response = await this.gateway.complete(
+      {
+        model: this.config.model,
+        messages: this.buildMessagesWithLWMContext(),
+        tools: toolDefs,
+        temperature: 0.2,
+        maxTokens: 4096,
+      },
+      { agentId: this.id, swarmId: this.config.swarmId ?? null },
+    );
 
     this.messages.push({ role: 'assistant', content: response.content, toolCalls: response.toolCalls });
 
@@ -474,7 +554,18 @@ export class Agent extends EventEmitter {
   private async setState(state: AgentState): Promise<void> {
     const from = this.state;
     this.state = state;
-    await this.persist();
+    // Update the agent row directly. Fire-and-forget so a slow
+    // DB doesn't block state transitions (the in-memory state
+    // is the source of truth during the run; the DB catches
+    // up asynchronously and is only consulted on restart).
+    void agentsTable.update(this.id, {
+      state,
+      completedAt: (state === 'completed' || state === 'failed' || state === 'cancelled') ? Date.now() : null,
+    }).catch(() => {
+      // Non-fatal: state changes happen often; if the DB is
+      // momentarily unavailable, the in-memory state is still
+      // correct for this run.
+    });
     this.emitEvent({ type: 'agent:state_changed', agentId: this.id, from, to: state });
   }
 
@@ -605,4 +696,18 @@ export class Agent extends EventEmitter {
     const recentMessages = this.messages.slice(-(MAX_HISTORY));
     this.messages = [systemMessage, ...recentMessages];
   }
+}
+
+/**
+ * Local helper: convert a messages-table row into the in-memory
+ * ChatMessage shape. Exported only within this module.
+ */
+function rowToMessage(row: messagesTable.MessageRow): ChatMessage {
+  return {
+    role: row.role,
+    content: row.content,
+    name: row.name ?? undefined,
+    toolCallId: row.toolCallId ?? undefined,
+    toolCalls: row.toolCalls ? JSON.parse(row.toolCalls) : undefined,
+  };
 }

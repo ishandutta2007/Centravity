@@ -8,6 +8,12 @@ import { Command } from 'commander';
 import { loadConfig } from './config/index.js';
 import { AgentOrchestrator } from './orchestrator/index.js';
 import { startServer } from './server.js';
+import { getDb, awaitPendingWrites } from './db/index.js';
+import * as swarmsTable from './db/tables/swarms.js';
+import * as agentsTable from './db/tables/agents.js';
+import * as costTable from './db/tables/cost-events.js';
+import { createBackup, listBackups } from './db/backup.js';
+import { migrationStatus } from './db/migrate.js';
 
 const program = new Command();
 
@@ -87,6 +93,9 @@ program
     // Print audit summary
     const auditStats = engine.getAudit().getStats();
     console.log(`  Audit: ${auditStats.total} actions (${auditStats.success} ✅, ${auditStats.failure} ❌, ${auditStats.blocked} 🚫)\n`);
+
+    // Await any pending background writes (e.g. audit logs, artifact indexing) before exiting
+    await awaitPendingWrites();
   });
 
 // ── Chat ──
@@ -201,6 +210,280 @@ program
   .action(async (opts: Record<string, string>) => {
     loadConfig({ port: parseInt(opts.port) });
     await startServer();
+  });
+
+// ── Helpers ──
+
+/** Formats a byte count as a human-readable string. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/** Formats a millisecond timestamp as a human-readable age. */
+function formatAge(ms: number): string {
+  const diff = Date.now() - ms;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
+}
+
+/** Pads/truncates a string to a fixed width for clean tables. */
+function pad(value: string | number, width: number, right = false): string {
+  const s = String(value);
+  if (s.length >= width) return s.slice(0, width);
+  const fill = ' '.repeat(width - s.length);
+  return right ? fill + s : s + fill;
+}
+
+// ── Swarms ──
+
+const swarmsCmd = program
+  .command('swarms')
+  .description('List all swarms (newest first)');
+
+swarmsCmd.action(async () => {
+  loadConfig();
+  const swarms = await swarmsTable.listAll(100);
+
+  console.log('\n  ⚡ Swarms');
+  console.log('  ═══════════════════════════════');
+  if (swarms.length === 0) {
+    console.log('  No swarms found.\n');
+    return;
+  }
+
+  console.log(`  ${pad('ID', 16)} ${pad('STATUS', 12)} ${pad('ROOT_TASK', 52)} ${pad('CREATED_AT', 24)}`);
+  console.log('  ' + '─'.repeat(108));
+  for (const s of swarms) {
+    const task = s.rootTask.length > 50 ? s.rootTask.slice(0, 47) + '...' : s.rootTask;
+    const created = new Date(s.createdAt).toISOString();
+    console.log(`  ${pad(s.id, 16)} ${pad(s.status, 12)} ${pad(task, 52)} ${pad(created, 24)}`);
+  }
+  console.log(`\n  Total: ${swarms.length} swarm(s)\n`);
+});
+
+// ── Swarms: inspect ──
+
+swarmsCmd
+  .command('inspect')
+  .description('Show detailed information about a single swarm and its agents')
+  .argument('<id>', 'Swarm ID to inspect')
+  .action(async (id: string) => {
+    loadConfig();
+    const swarm = await swarmsTable.findById(id);
+    if (!swarm) {
+      console.error(`\n  ✗ Swarm not found: ${id}\n`);
+      process.exit(1);
+    }
+
+    const agentRows = await agentsTable.findMany({ swarmId: id });
+    const costSummary = await costTable.summarize({ swarmId: id });
+    const totalCost = costSummary.totalCostUsd;
+
+    console.log('\n  ⚡ Swarm Detail');
+    console.log('  ═══════════════════════════════');
+    console.log(`  ID:          ${swarm.id}`);
+    console.log(`  Status:      ${swarm.status}`);
+    console.log(`  Pattern:     ${swarm.pattern}`);
+    console.log(`  Root Task:   ${swarm.rootTask}`);
+    console.log(`  Root Agent:  ${swarm.rootAgentId}`);
+    console.log(`  Agents:      ${agentRows.length}`);
+    console.log(`  Total Cost:  $${totalCost.toFixed(6)}`);
+    console.log(`  Max Cost:    $${swarm.maxCostUsd.toFixed(2)}`);
+    console.log(`  Created:     ${new Date(swarm.createdAt).toISOString()}`);
+    if (swarm.completedAt) {
+      console.log(`  Completed:   ${new Date(swarm.completedAt).toISOString()}`);
+    }
+    console.log('  ═══════════════════════════════\n');
+
+    if (agentRows.length === 0) {
+      console.log('  No agents in this swarm.\n');
+      return;
+    }
+
+    console.log(`  Agents (${agentRows.length}):`);
+    console.log(`  ${pad('ID', 16)} ${pad('STATE', 14)} ${pad('ROLE', 12)} TASK`);
+    console.log('  ' + '─'.repeat(80));
+    for (const a of agentRows) {
+      const task = a.task.length > 36 ? a.task.slice(0, 33) + '...' : a.task;
+      console.log(`  ${pad(a.id, 16)} ${pad(a.state, 14)} ${pad(a.role, 12)} ${task}`);
+    }
+    console.log('');
+  });
+
+// ── Swarms: cancel ──
+
+swarmsCmd
+  .command('cancel')
+  .description('Mark a swarm as cancelled (updates the status row)')
+  .argument('<id>', 'Swarm ID to cancel')
+  .action(async (id: string) => {
+    loadConfig();
+    const swarm = await swarmsTable.findById(id);
+    if (!swarm) {
+      console.error(`\n  ✗ Swarm not found: ${id}\n`);
+      process.exit(1);
+    }
+    if (swarm.status === 'cancelled') {
+      console.log(`\n  ⚠ Swarm ${id} is already cancelled.\n`);
+      return;
+    }
+
+    await swarmsTable.updateStatus(id, 'cancelled');
+    console.log(`\n  ✓ Swarm ${id} marked as cancelled.`);
+    console.log(`    Previous status: ${swarm.status}`);
+    console.log(`    New status:      cancelled\n`);
+  });
+
+// ── Cost ──
+
+program
+  .command('cost')
+  .description('Show cost summary for an agent (tokens, $ by provider and model)')
+  .argument('<agentId>', 'Agent ID to summarize')
+  .action(async (agentId: string) => {
+    loadConfig();
+    const summary = await costTable.summarize({ agentId });
+
+    console.log('\n  ⚡ Cost Summary');
+    console.log('  ═══════════════════════════════');
+    console.log(`  Agent:         ${agentId}`);
+    console.log(`  Total Cost:    $${summary.totalCostUsd.toFixed(6)}`);
+    console.log(`  Total Tokens:  ${(summary.totalInputTokens + summary.totalOutputTokens).toLocaleString()} (in: ${summary.totalInputTokens.toLocaleString()}, out: ${summary.totalOutputTokens.toLocaleString()})`);
+    console.log(`  LLM Calls:     ${summary.callCount}`);
+    console.log('  ═══════════════════════════════\n');
+
+    if (summary.callCount === 0) {
+      console.log('  No cost events recorded for this agent.\n');
+      return;
+    }
+
+    console.log('  By Provider:');
+    console.log(`  ${pad('PROVIDER', 20)} ${pad('CALLS', 8, true)} ${pad('COST', 14, true)}`);
+    console.log('  ' + '─'.repeat(46));
+    for (const [provider, info] of Object.entries(summary.byProvider).sort()) {
+      console.log(`  ${pad(provider, 20)} ${pad(info.calls, 8, true)} ${pad('$' + info.costUsd.toFixed(6), 14, true)}`);
+    }
+    console.log('');
+
+    console.log('  By Model:');
+    console.log(`  ${pad('MODEL', 30)} ${pad('CALLS', 8, true)} ${pad('COST', 14, true)}`);
+    console.log('  ' + '─'.repeat(56));
+    for (const [model, info] of Object.entries(summary.byModel).sort()) {
+      console.log(`  ${pad(model, 30)} ${pad(info.calls, 8, true)} ${pad('$' + info.costUsd.toFixed(6), 14, true)}`);
+    }
+    console.log('');
+  });
+
+// ── DB: status ──
+
+program
+  .command('db:status')
+  .description('Show database table row counts and last migration time')
+  .action(async () => {
+    loadConfig();
+    const db = await getDb();
+
+    console.log('\n  ⚡ Database Status');
+    console.log('  ═══════════════════════════════');
+    console.log(`  ${pad('TABLE', 26)} ${pad('ROWS', 12, true)}`);
+    console.log('  ' + '─'.repeat(40));
+
+    const tablesResult = await db.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+    );
+    const tables = tablesResult.rows.map(r => r.name as string);
+
+    let total = 0;
+    for (const table of tables) {
+      try {
+        const r = await db.execute({ sql: `SELECT COUNT(*) as c FROM ${table}` });
+        const count = Number((r.rows[0] as any).c);
+        total += count;
+        console.log(`  ${pad(table, 26)} ${pad(count, 12, true)}`);
+      } catch (err) {
+        console.log(`  ${pad(table, 26)} ${pad('(error)', 12, true)}`);
+      }
+    }
+    console.log('  ' + '─'.repeat(40));
+    console.log(`  ${pad('TOTAL', 26)} ${pad(total, 12, true)}`);
+
+    // Last applied migration
+    try {
+      const lastResult = await db.execute(
+        'SELECT version, name, applied_at FROM schema_migrations ORDER BY version DESC LIMIT 1'
+      );
+      if (lastResult.rows.length > 0) {
+        const last = lastResult.rows[0] as any;
+        console.log('  ═══════════════════════════════');
+        console.log(`  Last migration: v${String(last.version).padStart(4, '0')} ${last.name} (${new Date(last.applied_at).toISOString()})`);
+      } else {
+        console.log('  ═══════════════════════════════');
+        console.log('  Last migration: (none applied)');
+      }
+    } catch (err) {
+      console.log(`  Last migration: error (${err instanceof Error ? err.message : String(err)})`);
+    }
+    console.log('  ═══════════════════════════════\n');
+  });
+
+// ── DB: backup ──
+
+program
+  .command('db:backup')
+  .description('Create a timestamped snapshot of the SQLite database')
+  .action(async () => {
+    loadConfig();
+    try {
+      const result = await createBackup('cli');
+      console.log('\n  ✓ Backup created');
+      console.log('  ═══════════════════════════════');
+      console.log(`  Path:  ${result.path}`);
+      console.log(`  Size:  ${formatBytes(result.sizeBytes)} (${result.sizeBytes.toLocaleString()} bytes)`);
+      console.log('  ═══════════════════════════════\n');
+    } catch (err) {
+      console.error(`\n  ✗ Backup failed: ${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(1);
+    }
+  });
+
+// ── DB: backups ──
+
+program
+  .command('db:backups')
+  .description('List existing database backups (newest first)')
+  .action(async () => {
+    loadConfig();
+    const backups = listBackups();
+
+    console.log('\n  ⚡ Database Backups');
+    console.log('  ═══════════════════════════════');
+    if (backups.length === 0) {
+      console.log('  No backups found.');
+      console.log(`  Run: npm run cli db:backup  to create one.\n`);
+      return;
+    }
+
+    console.log(`  ${pad('FILENAME', 50)} ${pad('SIZE (KB)', 12, true)} ${pad('AGE', 12, true)}`);
+    console.log('  ' + '─'.repeat(78));
+    for (const b of backups) {
+      const filename = b.path.split(/[\\/]/).pop() ?? b.path;
+      const kb = (b.sizeBytes / 1024).toFixed(1);
+      const ageMs = Date.now() - b.timestamp;
+      const ageMin = Math.floor(ageMs / 60_000);
+      const ageHr = Math.floor(ageMin / 60);
+      const age = ageHr >= 1 ? `${ageHr}h ago` : `${ageMin}m ago`;
+      console.log(`  ${pad(filename, 50)} ${pad(kb, 12, true)} ${pad(age, 12, true)}`);
+    }
+    console.log(`\n  Total: ${backups.length} backup(s)\n`);
   });
 
 program.parse();

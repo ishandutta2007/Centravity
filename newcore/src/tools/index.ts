@@ -17,6 +17,9 @@ import { PythonSandboxTool } from './sandbox.js';
 import { SemanticSearchTool } from './semantic.js';
 
 import { DelegateTaskTool } from './delegate.js';
+import { MessageAgentTool } from './message-agent.js';
+import { AcquireLockTool } from './acquire-lock.js';
+import { ReleaseLockTool } from './release-lock.js';
 
 export class ToolRegistry {
   private tools = new Map<string, Tool>();
@@ -39,6 +42,9 @@ export class ToolRegistry {
       new LinterTool(),
       new Z3VerifyTool(),
       new TypeCheckerTool(),
+      new MessageAgentTool(),
+      new AcquireLockTool(),
+      new ReleaseLockTool(),
     ];
     for (const tool of defaults) {
       this.tools.set(tool.name, tool);
