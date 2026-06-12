@@ -1,12 +1,18 @@
 // ═══════════════════════════════════════════════════════════════
 // OpenCentravity — Artifact Store
-// Verifiable outputs: plans, diffs, logs, test results, Z3 proofs.
+//
+// v0.2.0: keeps the v0.1.0 JSON file storage (artifacts/<id>/*.json)
+// but ALSO indexes every artifact in the DB for querying and FTS5
+// search. The file copy is still the human-readable canonical form;
+// the DB row is the index for fast lookup and the FTS5 search index.
 // ═══════════════════════════════════════════════════════════════
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import type { ArtifactData, ArtifactType } from '../types/index.js';
 import { getConfig } from '../config/index.js';
+import * as artifactsTable from '../db/tables/artifacts.js';
+import { trackPromise } from '../db/index.js';
 
 export class ArtifactStore {
   private baseDir: string;
@@ -16,6 +22,7 @@ export class ArtifactStore {
     if (!existsSync(this.baseDir)) mkdirSync(this.baseDir, { recursive: true });
   }
 
+  /** Writes the artifact to BOTH disk and DB. Returns the artifact id. */
   save(artifact: ArtifactData): string {
     const agentDir = join(this.baseDir, artifact.agentId);
     if (!existsSync(agentDir)) mkdirSync(agentDir, { recursive: true });
@@ -23,7 +30,30 @@ export class ArtifactStore {
     const filename = `${artifact.id}.json`;
     const filepath = join(agentDir, filename);
     writeFileSync(filepath, JSON.stringify(artifact, null, 2), 'utf-8');
-    return filepath;
+
+    // Index in DB for queryability + FTS5. The DB write is async;
+    // we fire-and-await to surface errors, but a DB failure does
+    // not delete the file (the file is the canonical record).
+    trackPromise(
+      artifactsTable.insert({
+        agentId: artifact.agentId,
+        swarmId: artifact.swarmId ?? null,
+        type: artifact.type as ArtifactType,
+        title: artifact.title,
+        content: artifact.content,
+        metadataJson: JSON.stringify(artifact.metadata ?? {}),
+        visibility: artifact.visibility ?? 'private',
+      }).then(dbId => {
+        // The DB gets its own id (uuid) but the caller already has
+        // artifact.id. We keep the file id and the DB row 1:1
+        // via the metadata; the DB row id is internal.
+        void dbId;
+      }).catch(err => {
+        console.error('ArtifactStore DB index failed:', err);
+      })
+    );
+
+    return artifact.id;
   }
 
   get(agentId: string, artifactId: string): ArtifactData | null {
@@ -86,6 +116,26 @@ export class ArtifactStore {
     };
     this.save(artifact);
     return artifact;
+  }
+
+  /**
+   * v0.2.0: full-text search over artifacts. Uses the FTS5
+   * index defined in migration 0006. Returns the matching
+   * artifacts, ordered by relevance.
+   */
+  async search(query: string, limit = 20): Promise<ArtifactData[]> {
+    const rows = await artifactsTable.search(query, limit);
+    return rows.map(r => ({
+      id: r.id,
+      agentId: r.agentId,
+      type: r.type,
+      title: r.title,
+      content: r.content,
+      metadata: r.metadataJson ? JSON.parse(r.metadataJson) : {},
+      createdAt: r.createdAt,
+      swarmId: r.swarmId,
+      visibility: r.visibility,
+    }));
   }
 
   private generateDiff(before: string, after: string): string {

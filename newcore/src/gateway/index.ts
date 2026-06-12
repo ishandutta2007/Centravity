@@ -16,13 +16,35 @@ import { GeminiProvider } from './providers/gemini.js';
 import { OpenAIProvider } from './providers/openai.js';
 import { AnthropicProvider } from './providers/anthropic.js';
 import { OllamaProvider } from './providers/ollama.js';
+import { recordCall } from './cost-recorder.js';
+
+export interface ModelGatewayOptions {
+  /** The agent id that owns calls made through this gateway instance. */
+  agentId?: string;
+  /** The swarm id (if any) the calling agent belongs to. */
+  swarmId?: string | null;
+}
+
+/**
+ * Params that callers can attach to a single complete()/stream() call
+ * to supply per-call context (agentId, swarmId). When omitted, the
+ * gateway falls back to the values configured at construction.
+ */
+export interface CompletionCallParams {
+  agentId?: string;
+  swarmId?: string | null;
+}
 
 export class ModelGateway {
   private providers = new Map<string, ModelProvider>();
   private modelToProvider = new Map<string, string>();
   private fallbackChain: string[] = [];
+  private agentId: string | undefined;
+  private swarmId: string | null | undefined;
 
-  constructor() {
+  constructor(options: ModelGatewayOptions = {}) {
+    this.agentId = options.agentId;
+    this.swarmId = options.swarmId ?? null;
     this.registerBuiltinProviders();
   }
 
@@ -102,7 +124,12 @@ export class ModelGateway {
     return { provider: 'mock', model: 'mock-default' };
   }
 
-  async complete(request: CompletionRequest): Promise<CompletionResponse> {
+  /**
+   * Make a completion call. `params` (when supplied) override the
+   * gateway's default agentId/swarmId for this single call — useful
+   * when one gateway instance is shared across multiple agents.
+   */
+  async complete(request: CompletionRequest, params: CompletionCallParams = {}): Promise<CompletionResponse> {
     const { provider: providerName, model } = this.resolveModel(request.model);
 
     // Try primary provider
@@ -111,7 +138,9 @@ export class ModelGateway {
       try {
         const isAvail = await provider.isAvailable();
         if (isAvail) {
-          return await provider.complete({ ...request, model });
+          const response = await provider.complete({ ...request, model });
+          await this.maybeRecordCall(response, providerName, params);
+          return response;
         }
       } catch (err) {
         console.error(`Provider ${providerName} failed:`, err);
@@ -127,7 +156,9 @@ export class ModelGateway {
         const isAvail = await fb.isAvailable();
         if (isAvail) {
           const fbModel = fb.models[0]?.id ?? fallbackName;
-          return await fb.complete({ ...request, model: fbModel });
+          const response = await fb.complete({ ...request, model: fbModel });
+          await this.maybeRecordCall(response, fallbackName, params);
+          return response;
         }
       } catch {
         continue;
@@ -137,23 +168,84 @@ export class ModelGateway {
     throw new Error('No available LLM providers. Configure an API key or start Ollama.');
   }
 
-  async *stream(request: CompletionRequest): AsyncIterable<StreamChunk> {
+  async *stream(request: CompletionRequest, params: CompletionCallParams = {}): AsyncIterable<StreamChunk> {
     const { provider: providerName, model } = this.resolveModel(request.model);
     const provider = this.providers.get(providerName);
 
     if (provider?.stream) {
-      yield* provider.stream({ ...request, model });
-    } else {
-      // Fallback: simulate streaming from non-streaming response
-      const response = await this.complete(request);
-      const words = response.content.split(' ');
-      for (let i = 0; i < words.length; i++) {
-        yield {
-          id: response.id,
-          delta: (i > 0 ? ' ' : '') + words[i],
-          done: i === words.length - 1,
-        };
+      // Wrap the provider's stream so we can capture usage from the
+      // final chunk and run the cost recorder.
+      let lastChunk: StreamChunk | null = null;
+      for await (const chunk of provider.stream({ ...request, model })) {
+        lastChunk = chunk;
+        yield chunk;
+        if (chunk.done) break;
       }
+
+      // Some providers put a `usage` field on the final chunk; if so
+      // we record the call. If not, the caller (or complete() path)
+      // will get the cost event instead.
+      const usage = (lastChunk as (StreamChunk & { usage?: { promptTokens: number; completionTokens: number } }))?.usage;
+      if (usage) {
+        const costUsd = this.computeCost(providerName, model, usage.promptTokens, usage.completionTokens);
+        await this.maybeRecordUsage(usage, providerName, model, costUsd, params);
+      }
+      return;
     }
+
+    // Fallback: simulate streaming from non-streaming response
+    const response = await this.complete(request, params);
+    const words = response.content.split(' ');
+    for (let i = 0; i < words.length; i++) {
+      yield {
+        id: response.id,
+        delta: (i > 0 ? ' ' : '') + words[i],
+        done: i === words.length - 1,
+      };
+    }
+  }
+
+  // ── Cost tracking helpers ──────────────────────────────────────
+
+  /**
+   * Resolve the (agentId, swarmId) tuple to attach to a cost event.
+   * Per-call params win over constructor defaults.
+   */
+  private resolveCallContext(params: CompletionCallParams): { agentId: string | undefined; swarmId: string | null } {
+    return {
+      agentId: params.agentId ?? this.agentId,
+      swarmId: params.swarmId ?? this.swarmId ?? null,
+    };
+  }
+
+  /**
+   * Compute USD cost from a model id, prompt tokens, and completion
+   * tokens. Uses the provider's ModelInfo for pricing. Returns 0 for
+   * unknown models (e.g. a free-tier provider) or the mock provider.
+   */
+  private computeCost(providerName: string, modelId: string, promptTokens: number, completionTokens: number): number {
+    const provider = this.providers.get(providerName);
+    const model = provider?.models.find(m => m.id === modelId);
+    if (!model) return 0;
+    return promptTokens * model.costPerInputToken + completionTokens * model.costPerOutputToken;
+  }
+
+  private async maybeRecordCall(response: CompletionResponse, providerName: string, params: CompletionCallParams): Promise<void> {
+    const ctx = this.resolveCallContext(params);
+    if (!ctx.agentId) return; // No agent context → nowhere to attribute the call.
+    const costUsd = this.computeCost(providerName, response.model, response.usage.promptTokens, response.usage.completionTokens);
+    await recordCall(ctx.agentId, ctx.swarmId, providerName, response.model, response.usage, costUsd);
+  }
+
+  private async maybeRecordUsage(
+    usage: { promptTokens: number; completionTokens: number },
+    providerName: string,
+    modelId: string,
+    costUsd: number,
+    params: CompletionCallParams,
+  ): Promise<void> {
+    const ctx = this.resolveCallContext(params);
+    if (!ctx.agentId) return;
+    await recordCall(ctx.agentId, ctx.swarmId, providerName, modelId, usage, costUsd);
   }
 }

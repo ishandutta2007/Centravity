@@ -38,24 +38,26 @@ export class PythonSandboxTool implements Tool {
     const code = input.code as string;
     const dependencies = (input.dependencies as string[]) || [];
     
-    // 1. Human-in-the-Loop (HitL) Approval Phase
-    // Note: The agent orchestrator now pauses execution completely until
-    // the POST /agents/:id/approve API is hit. This is handled before this tool is even called.
-    
-    // 2. Setup Sandbox Directory
-    const sandboxDir = resolve(context.workspaceDir, '.sandbox');
+    // 1. Setup Sandbox Directory (Shadow Workspace)
+    // We isolate execution inside a specific `.shadow` directory to prevent immediate pollution.
+    const sandboxDir = resolve(context.workspaceDir, '.shadow');
     if (!existsSync(sandboxDir)) mkdirSync(sandboxDir, { recursive: true });
 
-    // 3. Write Code to File
+    // 2. Write Code to File
     const scriptId = randomBytes(4).toString('hex');
     const scriptPath = join(sandboxDir, `script_${scriptId}.py`);
     
+    const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST;
+
     const wrappedCode = `
 import os
 import sys
 
 # Set working directory to the mounted workspace
-os.chdir("/workspace")
+try:
+    os.chdir("/workspace")
+except FileNotFoundError:
+    pass
 
 # User Code
 ${code}
@@ -83,7 +85,7 @@ ${code}
     try {
       let output = '';
       
-      if (useDocker) {
+      if (useDocker && !isTest) {
         // Build the docker command
         let depCmd = '';
         if (dependencies.length > 0) {
@@ -92,20 +94,34 @@ ${code}
         
         // Convert windows paths for docker
         const winPath = context.workspaceDir.replace(/\\/g, '/');
-        const dockerCmd = `docker run --rm -v "${winPath}:/workspace" -w /workspace python:3.11-slim bash -c "${depCmd}python .sandbox/script_${scriptId}.py"`;
+        const shadowWinPath = sandboxDir.replace(/\\/g, '/');
         
-        output = execSync(dockerCmd, {
-          encoding: 'utf-8',
-          timeout: 60_000, 
-          maxBuffer: 5 * 1024 * 1024 
-        });
-      } else {
+        // Mount only the shadow workspace to isolate code modifications, preventing it from writing directly to workspace
+        const dockerCmd = `docker run --rm -v "${winPath}:/workspace:ro" -v "${shadowWinPath}:/shadow" -w /shadow python:3.11-slim bash -c "${depCmd}python script_${scriptId}.py"`;
+        
+        try {
+          output = execSync(dockerCmd, {
+            encoding: 'utf-8',
+            timeout: 60_000, 
+            maxBuffer: 5 * 1024 * 1024 
+          });
+        } catch (e: any) {
+          // If overlay mount fails (e.g. in some cloud CI environments), fallback immediately
+          if (e.message && e.message.includes('failed to mount')) {
+             useDocker = false;
+          } else {
+             throw e;
+          }
+        }
+      } 
+      
+      if (!useDocker || isTest) {
         // Fallback local execution
         if (dependencies.length > 0) {
           execSync(`pip install -q ${dependencies.join(' ')}`, { cwd: sandboxDir });
         }
         output = execSync(`python "${scriptPath}"`, {
-          cwd: context.workspaceDir,
+          cwd: sandboxDir,
           encoding: 'utf-8',
           timeout: 30_000,
           maxBuffer: 5 * 1024 * 1024

@@ -32,3 +32,9 @@ src/vs/workbench/contrib/void/browser/react/src2/**
 # Environment files
 .env
 .env.local
+
+# Runtime and generated directories
+/artifacts/
+/data/
+/workspaces/
+/newcore/scratch/

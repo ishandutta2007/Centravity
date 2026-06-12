@@ -45,6 +45,21 @@
 
 ---
 
+## 🧬 OpenCentravity v0.2.0 Backend Core (Implemented)
+
+The underlying core engine (`newcore/`) has been completely upgraded to support enterprise-grade, concurrent multi-agent coordination. Key capabilities include:
+
+- **💾 Sequential Migrations & Schema**: A robust 14-table SQLite database layer (`src/db/`) supporting Write-Ahead Logging (WAL) and sequential schema migrations (0001–0014).
+- **🔒 Connection Safety**: A module-level promise mechanism blocks concurrent read/write queries from running on a partially-migrated database, eliminating race condition locks.
+- **🤝 Hierarchical Swarms**: Database tracking of parent-child relationships between agents, allowing complex workflows to branch out cleanly into swarms.
+- **💬 Whiteboard Message Bus**: A shared communication whiteboard (`src/orchestrator/messagebus.ts`) that enables sub-agents to broadcast statuses and coordinates their efforts.
+- **🗝️ Distributed Lock Manager**: File-level mutexes (`src/orchestrator/locks.ts`) that prevent overlapping writes or edit collisions by parallel agents on the same files.
+- **📸 LWM Memory Snapshots**: Snapshotting engine (`src/memory/snapshot.ts`) that saves agent memory states periodically, allowing agents to restore state and self-heal from failures.
+- **💸 Cost Recorder & Caps**: Monitors and persists input/output token counts and real-time API cost per LLM call, enabling strict swarm-level cost ceiling rules (`MAX_COST_USD`).
+- **📟 Consolidated CLI Commands**: Clean command suite including `swarms`, `swarms inspect`, `swarms cancel`, `cost`, `db:status`, `db:backup`, and `db:backups`.
+
+---
+
 ## 🏛️ High-Level Architecture
 
 Open Anticentravity is a modular, container-native application designed for flexibility and scale. 🏗️

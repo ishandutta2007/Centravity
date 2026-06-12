@@ -7,6 +7,13 @@ import Fastify from 'fastify';
 import { loadConfig } from './config/index.js';
 import { AgentOrchestrator } from './orchestrator/index.js';
 import type { EngineEvent } from './types/index.js';
+import * as swarmsTable from './db/tables/swarms.js';
+import * as agentsTable from './db/tables/agents.js';
+import * as costTable from './db/tables/cost-events.js';
+import * as lwmTable from './db/tables/lwm-snapshots.js';
+import * as whiteboardTable from './db/tables/whiteboard.js';
+import * as locksTable from './db/tables/locks.js';
+import * as artifactsTable from './db/tables/artifacts.js';
 
 export async function startServer(orchestrator?: AgentOrchestrator) {
   const config = loadConfig();
@@ -147,6 +154,103 @@ export async function startServer(orchestrator?: AgentOrchestrator) {
       action: query.action,
       limit: query.limit ? parseInt(query.limit) : 100,
     });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // v0.2.0 PHASE 4 ROUTES (additive — no existing route changed)
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── Swarms ──
+  app.get('/swarms', async () => ({ swarms: await swarmsTable.listAll(100) }));
+
+  app.get<{ Params: { id: string } }>('/swarms/:id', async (req, reply) => {
+    const swarm = await swarmsTable.findById(req.params.id);
+    if (!swarm) return reply.code(404).send({ error: 'Swarm not found' });
+    const agents = await agentsTable.findMany({ swarmId: swarm.id });
+    return { swarm, agentCount: agents.length };
+  });
+
+  app.get<{ Params: { id: string } }>('/swarms/:id/cost', async (req) => {
+    return costTable.summarize({ swarmId: req.params.id });
+  });
+
+  app.get<{ Params: { id: string } }>('/swarms/:id/agents', async (req) => {
+    const agents = await agentsTable.findMany({ swarmId: req.params.id });
+    return { agents: agents.map(agentsTable.rowToStatus) };
+  });
+
+  // ── Agents (extended) ──
+  app.get<{ Params: { id: string } }>('/agents/:id/cost', async (req) => {
+    return costTable.summarize({ agentId: req.params.id });
+  });
+
+  app.get<{ Params: { id: string } }>('/agents/:id/children', async (req, reply) => {
+    const parent = await agentsTable.findById(req.params.id);
+    if (!parent) return reply.code(404).send({ error: 'Agent not found' });
+    const tree = await agentsTable.getDescendantTree(req.params.id);
+    return { children: tree };
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { limit?: string } }>('/agents/:id/memory/snapshots', async (req) => {
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+    const snapshots = await lwmTable.loadForAgent(req.params.id, limit);
+    return { snapshots };
+  });
+
+  app.get<{ Params: { id: string } }>('/agents/:id/messages', async (req) => {
+    const messages = await whiteboardTable.getUnread(req.params.id);
+    return { messages };
+  });
+
+  // ── File locks ──
+  app.get<{ Querystring: { workspace_dir?: string } }>('/workspaces/locks', async (req, reply) => {
+    const dir = req.query.workspace_dir;
+    if (!dir) return reply.code(400).send({ error: 'Missing ?workspace_dir= query param' });
+    const locks = await locksTable.listForWorkspace(dir);
+    return { locks };
+  });
+
+  // ── Artifact search (FTS5) ──
+  app.get<{ Querystring: { q?: string; limit?: string } }>('/artifacts/search', async (req, reply) => {
+    const q = req.query.q;
+    if (!q) return reply.code(400).send({ error: 'Missing ?q= query param' });
+    const limit = req.query.limit ? parseInt(req.query.limit) : 20;
+    const results = await artifactsTable.search(q, limit);
+    return { results };
+  });
+
+  // ── Audit stats (DB-backed) ──
+  app.get('/audit/stats', async () => {
+    return engine.getAudit().statsDb();
+  });
+
+  // ── Server-Sent Events stream (Phase 4 stub) ──
+  // Subscribers receive every engine event. Closes when the
+  // client disconnects. Sends a 15s heartbeat to keep proxies
+  // from killing idle connections.
+  app.get('/events', (req, reply) => {
+    reply.raw.setHeader('Content-Type', 'text/event-stream');
+    reply.raw.setHeader('Cache-Control', 'no-cache');
+    reply.raw.setHeader('Connection', 'keep-alive');
+    reply.raw.writeHead(200);
+    reply.raw.write(': connected\n\n');
+
+    const onEvent = (event: EngineEvent) => {
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    engine.on('event', onEvent);
+
+    const heartbeat = setInterval(() => {
+      try { reply.raw.write(': ping\n\n'); }
+      catch { /* connection closed */ }
+    }, 15_000);
+
+    const cleanup = () => {
+      engine.off('event', onEvent);
+      clearInterval(heartbeat);
+    };
+    reply.raw.on('close', cleanup);
+    reply.raw.on('error', cleanup);
   });
 
   // ── Start ──

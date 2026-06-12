@@ -36,6 +36,16 @@ export const ConfigSchema = z.object({
   // Z3 Solver
   z3Enabled: z.boolean().default(true),
   z3TimeoutMs: z.number().default(5_000),
+
+  // v0.2.0 multi-agent and LWM settings
+  lwmSnapshotEveryNTicks: z.number().default(10),
+  lwmMaxSnapshotsPerAgent: z.number().default(1_000),
+  maxCostUsd: z.number().default(0),
+  costOverflowAction: z.enum(['pause', 'kill', 'downgrade']).default('pause'),
+  swarmDefaultMode: z.enum(['auto', 'always', 'never']).default('auto'),
+  retentionDaysLogs: z.number().default(30),
+  retentionDaysCost: z.number().default(90),
+  retentionDaysLwm: z.number().default(7),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -93,6 +103,14 @@ export function loadConfig(overrides?: Partial<Config>): Config {
     maxFileSizeBytes: envVars.MAX_FILE_SIZE_BYTES ? parseInt(envVars.MAX_FILE_SIZE_BYTES, 10) : undefined,
     z3Enabled: parseEnvBool(envVars.Z3_ENABLED),
     z3TimeoutMs: envVars.Z3_TIMEOUT_MS ? parseInt(envVars.Z3_TIMEOUT_MS, 10) : undefined,
+    lwmSnapshotEveryNTicks: envVars.LWM_SNAPSHOT_EVERY_N_TICKS ? parseInt(envVars.LWM_SNAPSHOT_EVERY_N_TICKS, 10) : undefined,
+    lwmMaxSnapshotsPerAgent: envVars.LWM_MAX_SNAPSHOTS_PER_AGENT ? parseInt(envVars.LWM_MAX_SNAPSHOTS_PER_AGENT, 10) : undefined,
+    maxCostUsd: envVars.MAX_COST_USD ? parseFloat(envVars.MAX_COST_USD) : undefined,
+    costOverflowAction: envVars.COST_OVERFLOW_ACTION,
+    swarmDefaultMode: envVars.SWARM_DEFAULT_MODE,
+    retentionDaysLogs: envVars.RETENTION_DAYS_LOGS ? parseInt(envVars.RETENTION_DAYS_LOGS, 10) : undefined,
+    retentionDaysCost: envVars.RETENTION_DAYS_COST ? parseInt(envVars.RETENTION_DAYS_COST, 10) : undefined,
+    retentionDaysLwm: envVars.RETENTION_DAYS_LWM ? parseInt(envVars.RETENTION_DAYS_LWM, 10) : undefined,
     ...overrides,
   };
 
