@@ -118,7 +118,7 @@ We welcome contributions from everyone! 💖 Whether you're a developer, designe
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ishandutta2007/open-anticentravity&type=date&legend=top-left)](https://www.star-history.com/#ishandutta2007/open-anticentravity&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=ishandutta2007/centravity&type=date&legend=top-left)](https://www.star-history.com/#ishandutta2007/centravity&type=date&legend=top-left)
 
 ---
 
