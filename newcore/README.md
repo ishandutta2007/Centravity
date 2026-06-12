@@ -1,8 +1,8 @@
-# OpenGravity Core Engine 🌌
+# OpenCentravity Core Engine 🌌
 
 > **A headless, infrastructure-first autonomous AI orchestration engine with Liquid Working Memory.**
 
-OpenGravity is a production-grade backend engine designed to execute complex, multi-step software engineering tasks autonomously. It sits between user interfaces (like a CLI, VS Code extension, or web dashboard) and Large Language Models, providing a robust containerized sandbox, formal verification, and **a novel Liquid Working Memory system that prevents goal drift across multi-step execution.**
+OpenCentravity is a production-grade backend engine designed to execute complex, multi-step software engineering tasks autonomously. It sits between user interfaces (like a CLI, VS Code extension, or web dashboard) and Large Language Models, providing a robust containerized sandbox, formal verification, and **a novel Liquid Working Memory system that prevents goal drift across multi-step execution.**
 
 ---
 
@@ -15,7 +15,7 @@ In multi-step agentic workflows, Large Language Models suffer from three critica
 3. **Observability Black Box:** During execution, there is no mathematical representation of what the agent swarm is focusing on, whether it is struggling with compile errors, or if it has drifted away from the original goal.
 
 ### The Solution: Continuous-Time Memory Graphs
-OpenGravity implements **Liquid Working Memory (LWM)**—a lightweight, continuous-time memory graph that runs parallel to the LLM. It acts as shared "cognitive glue" to manage agent focus. LWM is inspired by Liquid Neural Networks (MIT CSAIL) but implemented as a lightweight, zero-dependency TypeScript structure—**no GPU required, no training needed, and zero runtime inference overhead.**
+OpenCentravity implements **Liquid Working Memory (LWM)**—a lightweight, continuous-time memory graph that runs parallel to the LLM. It acts as shared "cognitive glue" to manage agent focus. LWM is inspired by Liquid Neural Networks (MIT CSAIL) but implemented as a lightweight, zero-dependency TypeScript structure—**no GPU required, no training needed, and zero runtime inference overhead.**
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -40,7 +40,7 @@ $$\frac{da_i}{dt} = -\gamma_i a_i + (1 - a_i) \left( \sum_{j} (w_{ji} a_j) + g_i
 
 Where:
 - $\gamma_i$ is the node-specific decay rate (goal nodes decay extremely slowly, while transient tool logs or feedback decay rapidly).
-- $g_i$ is the constant goal bias (acting as a gravity pull that anchors critical goals).
+- $g_i$ is the constant goal bias (acting as a centravity pull that anchors critical goals).
 - $w_{ji}$ is the directed edge weight from node $j$ to node $i$.
 - $\sum_{j} (w_{ji} a_j)$ represents the propagating activation from connected active nodes.
 
@@ -68,14 +68,14 @@ Before execution starts, LWM enforces a safety gate:
 ## ✨ Core Features (V2 Architecture)
 
 ### 1. 📉 True Vector RAG (Semantic Token Reduction)
-Instead of dumping entire source files into the LLM, OpenGravity performs Tool-Level RAG. When an agent requests context, the `semantic_search` tool chunks the codebase, generates vector embeddings locally using **Gemini (`text-embedding-004`)**, performs **Cosine Similarity** calculations, and returns only the most relevant snippets.
+Instead of dumping entire source files into the LLM, OpenCentravity performs Tool-Level RAG. When an agent requests context, the `semantic_search` tool chunks the codebase, generates vector embeddings locally using **Gemini (`text-embedding-004`)**, performs **Cosine Similarity** calculations, and returns only the most relevant snippets.
 *Result: Context payload is reduced from 50,000+ tokens to under 500.*
 
 ### 2. 🐍 Containerized Python Sandbox (Pass-by-Reference Memory)
-Passing large datasets through an LLM chat window degrades performance. OpenGravity enforces a **Pass-by-Reference** workflow. Agents write and execute Python scripts within a secure **Docker container**. Data files (CSVs, databases) are saved to a shared workspace volume. One agent pulls or generates data, and the next reads it directly from disk. The LLM acts purely as a coordinator, never touching raw data.
+Passing large datasets through an LLM chat window degrades performance. OpenCentravity enforces a **Pass-by-Reference** workflow. Agents write and execute Python scripts within a secure **Docker container**. Data files (CSVs, databases) are saved to a shared workspace volume. One agent pulls or generates data, and the next reads it directly from disk. The LLM acts purely as a coordinator, never touching raw data.
 
 ### 3. ⚡ Real Z3 SMT Formal Verification
-LLMs write code by probabilistic guessing. OpenGravity mathematically proves correctness. Using the official **Microsoft `z3-solver` WASM library**, agents verify:
+LLMs write code by probabilistic guessing. OpenCentravity mathematically proves correctness. Using the official **Microsoft `z3-solver` WASM library**, agents verify:
 - Array bounds safety (out-of-bounds checks).
 - Null/undefined dereference safety.
 - Integer overflow and underflow invariants.
@@ -83,7 +83,7 @@ If verification fails, Z3 generates a concrete mathematical counterexample, forc
 
 ### 4. 🤖 Multi-Agent Protocol & Persistent State
 - **Delegate Task Tool:** Agents can spawn specialized sub-agents with narrow scopes to solve complex sub-tasks in parallel.
-- **LibSQL / SQLite Database Persistence:** All agents, plans, execution steps, and messages are persisted in a local database (`data/opengravity.db`). Agents can survive server restarts and resume execution without losing progress.
+- **LibSQL / SQLite Database Persistence:** All agents, plans, execution steps, and messages are persisted in a local database (`data/opencentravity.db`). Agents can survive server restarts and resume execution without losing progress.
 
 ---
 
@@ -144,8 +144,8 @@ graph TB
 
 ```bash
 # Clone the repository
-git clone https://github.com/mkrishna793/open-antigravity.git
-cd open-antigravity
+git clone https://github.com/mkrishna793/open-anticentravity.git
+cd open-anticentravity
 
 # Install dependencies inside the newcore engine
 cd newcore
@@ -222,7 +222,7 @@ Manually injects an activation signal into a specific memory node.
 
 ## 🧪 Testing
 
-OpenGravity contains a robust test suite covering memory dynamics, differential equation decay, Hebbian plasticity, and agent lifecycle integration.
+OpenCentravity contains a robust test suite covering memory dynamics, differential equation decay, Hebbian plasticity, and agent lifecycle integration.
 
 ```bash
 npm test

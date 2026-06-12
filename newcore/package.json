@@ -1,11 +1,11 @@
 {
-  "name": "opengravity-engine",
+  "name": "opencentravity-engine",
   "version": "0.1.0",
-  "description": "Open-Antigravity Core Engine — Universal AI Agent Orchestrator with Formal Verification",
+  "description": "Open-Anticentravity Core Engine — Universal AI Agent Orchestrator with Formal Verification",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "opengravity": "dist/cli.js"
+    "opencentravity": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

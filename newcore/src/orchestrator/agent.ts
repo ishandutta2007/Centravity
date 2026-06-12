@@ -13,7 +13,7 @@ import type { PolicyEngine } from '../policy/index.js';
 import { getDb } from '../db/index.js';
 import { LiquidMemory } from '../memory/liquid.js';
 
-const SYSTEM_PROMPT = `You are an expert software engineering agent in the OpenGravity Engine.
+const SYSTEM_PROMPT = `You are an expert software engineering agent in the OpenCentravity Engine.
 
 Your role:
 - Plan, implement, and verify code changes autonomously

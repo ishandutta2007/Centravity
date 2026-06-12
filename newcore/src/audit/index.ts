@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Audit Logger
+// OpenCentravity — Audit Logger
 // Full action timeline with SQLite persistence.
 // ═══════════════════════════════════════════════════════════════
 

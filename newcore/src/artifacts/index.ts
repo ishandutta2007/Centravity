@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Artifact Store
+// OpenCentravity — Artifact Store
 // Verifiable outputs: plans, diffs, logs, test results, Z3 proofs.
 // ═══════════════════════════════════════════════════════════════
 

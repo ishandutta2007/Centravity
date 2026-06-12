@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity Engine — Configuration Manager
+// OpenCentravity Engine — Configuration Manager
 // Loads from .env + YAML + CLI args with Zod validation.
 // ═══════════════════════════════════════════════════════════════
 

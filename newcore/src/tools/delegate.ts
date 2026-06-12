@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Multi-Agent Delegation Tool
+// OpenCentravity — Multi-Agent Delegation Tool
 // Spawns a sub-agent to handle specialized tasks and waits for result.
 // ═══════════════════════════════════════════════════════════════
 

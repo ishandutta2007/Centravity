@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Terminal Tool
+// OpenCentravity — Terminal Tool
 // Safe command execution with timeout, output capture, and policy.
 // ═══════════════════════════════════════════════════════════════
 

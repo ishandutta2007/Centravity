@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Vector Search Tool (Tool-Level RAG)
+// OpenCentravity — Vector Search Tool (Tool-Level RAG)
 // Uses real embeddings and cosine similarity against local files.
 // ═══════════════════════════════════════════════════════════════
 

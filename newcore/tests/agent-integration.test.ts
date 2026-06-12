@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Agent Integration Test Suite (LWM Lifecycle)
+// OpenCentravity — Agent Integration Test Suite (LWM Lifecycle)
 // ═══════════════════════════════════════════════════════════════
 
 import { describe, it, expect, beforeAll } from 'vitest';

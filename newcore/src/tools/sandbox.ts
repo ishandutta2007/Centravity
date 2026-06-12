@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Python Sandbox Tool (V2)
+// OpenCentravity — Python Sandbox Tool (V2)
 // True containerized execution via Docker with HitL hooks.
 // ═══════════════════════════════════════════════════════════════
 

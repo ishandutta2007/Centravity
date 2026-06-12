@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Linter Tool
+// OpenCentravity — Linter Tool
 // Runs ESLint or language-specific linters on files.
 // ═══════════════════════════════════════════════════════════════
 

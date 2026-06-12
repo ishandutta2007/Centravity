@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Code Search Tool
+// OpenCentravity — Code Search Tool
 // Fast text and pattern search using ripgrep-style matching.
 // ═══════════════════════════════════════════════════════════════
 

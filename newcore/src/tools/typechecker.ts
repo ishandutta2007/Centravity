@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — TypeChecker Tool
+// OpenCentravity — TypeChecker Tool
 // Runs TypeScript compiler or mypy for type verification.
 // ═══════════════════════════════════════════════════════════════
 

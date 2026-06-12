@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Tool Registry
+// OpenCentravity — Tool Registry
 // Central hub for all tool adapters. Exposes tools in
 // OpenAI function-calling compatible format.
 // ═══════════════════════════════════════════════════════════════

@@ -8,7 +8,7 @@ export async function getDb() {
   if (dbClient) return dbClient;
 
   const config = getConfig();
-  const dbPath = join(process.cwd(), 'data', 'opengravity.db');
+  const dbPath = join(process.cwd(), 'data', 'opencentravity.db');
   
   dbClient = createClient({
     url: `file:${dbPath}`,

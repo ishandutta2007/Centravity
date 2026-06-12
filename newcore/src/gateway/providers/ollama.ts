@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Ollama Provider (Local Models)
+// OpenCentravity — Ollama Provider (Local Models)
 // ═══════════════════════════════════════════════════════════════
 
 import type {

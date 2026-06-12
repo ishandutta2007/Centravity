@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity Engine — Main Entry Point
+// OpenCentravity Engine — Main Entry Point
 // ═══════════════════════════════════════════════════════════════
 
 export { AgentOrchestrator } from './orchestrator/index.js';

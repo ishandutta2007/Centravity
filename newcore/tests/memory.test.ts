@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Liquid Working Memory (LWM) Test Suite
+// OpenCentravity — Liquid Working Memory (LWM) Test Suite
 // Validates: decay dynamics, stimulus propagation, Hebbian
 // plasticity, goal anchoring, prompt synthesis, and telemetry.
 // ═══════════════════════════════════════════════════════════════

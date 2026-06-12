@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Git Tool
+// OpenCentravity — Git Tool
 // Git operations: status, diff, commit, log.
 // ═══════════════════════════════════════════════════════════════
 
@@ -27,7 +27,7 @@ export class GitTool implements Tool {
       diff: `git diff ${args}`.trim(),
       log: `git log --oneline -20 ${args}`.trim(),
       add: `git add ${args || '.'}`.trim(),
-      commit: `git commit -m "${args || 'Auto-commit by OpenGravity agent'}"`,
+      commit: `git commit -m "${args || 'Auto-commit by OpenCentravity agent'}"`,
       init: 'git init',
     };
 

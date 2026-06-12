@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity Engine — Core Type Definitions
+// OpenCentravity Engine — Core Type Definitions
 // The shared type contracts that every component depends on.
 // ═══════════════════════════════════════════════════════════════
 

@@ -2,9 +2,9 @@
   <br />
   <img src=".github/assets/shorter_logo.svg" width="200" />
   <br />
-  <h1>Open-Antigravity</h1>
+  <h1>Open-Anticentravity</h1>
 
-  [Download](https://antigravity.google)
+  [Download](https://anticentravity.google)
   <p><b>The Open-Source, Universal AI Gateway for Agentic Development</b></p>
   <p>
     <i>An open, community-driven effort to build a truly model-agnostic alternative to proprietary agentic coding platforms.</i>
@@ -23,7 +23,7 @@
 
 ---
 
-**Open-Antigravity** is not just another code editor or AI assistant. It's an ambitious open-source project to build a web-native, **agent-first** integrated development environment (IDE). Unlike proprietary platforms that lock you into a single AI ecosystem, Open-Antigravity is designed from the ground up to be a **universal gateway to any LLM**. Our goal is to create a platform where developers can delegate complex tasks to autonomous AI agents, powered by the models of their choice.
+**Open-Anticentravity** is not just another code editor or AI assistant. It's an ambitious open-source project to build a web-native, **agent-first** integrated development environment (IDE). Unlike proprietary platforms that lock you into a single AI ecosystem, Open-Anticentravity is designed from the ground up to be a **universal gateway to any LLM**. Our goal is to create a platform where developers can delegate complex tasks to autonomous AI agents, powered by the models of their choice.
 
 This project is for you if you believe in:
 - **True Model Freedom:** Building a future that isn't tied to a single AI provider.
@@ -35,14 +35,14 @@ This project is for you if you believe in:
 
 We aim to build a platform that redefines developer productivity. Here are the key features we are building towards:
 
-- **🌌 Best of All Worlds:** Aims to fuse the best features of Claude Desktop, Cursor, Windsurf, Kiro, Trae, Trae CN, Qoder, and Antigravity into a single, cohesive experience.
+- **🌌 Best of All Worlds:** Aims to fuse the best features of Claude Desktop, Cursor, Windsurf, Kiro, Trae, Trae CN, Qoder, and Anticentravity into a single, cohesive experience.
 
 - **✨ Google's Cutting Edge:** Incorporates the powerful code-mending capabilities of **Google CodeMender** and the advanced reasoning of **Google Jules** to provide state-of-the-art code generation, debugging, and understanding.
 
 - **🔒 Privacy First:** No code information, environment information, OS information or user information or usage pattern would be sent to google.
 
 - **🔌 Universal LLM Gateway:**
-  Break free from vendor lock-in. Open-Antigravity is designed as a universal translation layer for Large Language Models. Connect to anything from OpenAI's GPT-5, Anthropic's Claude, and Google's Gemini to open models like Llama, Grok, and Qwen, or specialized APIs like Deepseek and Kimi. A unified interface means your agents and tools work seamlessly across all of them.
+  Break free from vendor lock-in. Open-Anticentravity is designed as a universal translation layer for Large Language Models. Connect to anything from OpenAI's GPT-5, Anthropic's Claude, and Google's Gemini to open models like Llama, Grok, and Qwen, or specialized APIs like Deepseek and Kimi. A unified interface means your agents and tools work seamlessly across all of them.
 
 - **🤖 Agent-First Workflow:**
   Delegate high-level tasks like "implement a new API endpoint for user authentication" or "refactor the database schema and update all related services" to AI agents powered by your chosen LLM.
@@ -65,7 +65,7 @@ We aim to build a platform that redefines developer productivity. Here are the k
 
 ## 🏛️ High-Level Architecture
 
-Open-Antigravity is being designed as a modular, container-native application that you can run anywhere.
+Open-Anticentravity is being designed as a modular, container-native application that you can run anywhere.
 
 ```
 ┌──────────────────────────┐
@@ -131,8 +131,8 @@ Interested in building the future of software development with us? Here’s how 
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/ishandutta2007/open-antigravity.git
-    cd open-antigravity
+    git clone https://github.com/ishandutta2007/open-anticentravity.git
+    cd open-anticentravity
     ```
 
 2.  **Setup environment variables:**
@@ -145,32 +145,32 @@ Interested in building the future of software development with us? Here’s how 
     ```bash
     docker-compose up --build
     ```
-    This will build all the services and launch the Open-Antigravity platform. You can access it at `http://localhost:3000`.
+    This will build all the services and launch the Open-Anticentravity platform. You can access it at `http://localhost:3000`.
 
 ## 🙌 How to Contribute
 
 We believe this ambitious project can only be realized as a community. We welcome contributions from everyone, whether you're a developer, a designer, a technical writer, or just an enthusiast.
 
 - **Check out the [Contribution Guide](./CONTRIBUTING.md)** to learn about our development process and how to get started.
-- **Look at the [open issues](https://github.com/ishandutta2007/open-antigravity/issues)** to find a task that interests you.
+- **Look at the [open issues](https://github.com/ishandutta2007/open-anticentravity/issues)** to find a task that interests you.
 - **Join our [Discord server](https://discord.com/invite/jc4xtF58Ve)** to chat with the team and other contributors.
 
 ## 🙌 Contributors
 
-<a href="https://github.com/ishandutta2007/open-antigravity/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=ishandutta2007/open-antigravity" />
+<a href="https://github.com/ishandutta2007/open-anticentravity/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ishandutta2007/open-anticentravity" />
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ishandutta2007/open-antigravity&type=date&legend=top-left)](https://www.star-history.com/#ishandutta2007/open-antigravity&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=ishandutta2007/open-anticentravity&type=date&legend=top-left)](https://www.star-history.com/#ishandutta2007/open-anticentravity&type=date&legend=top-left)
 
 
 ## 📜 Disclaimer
 
-This tool is independent and not affiliated with Google. "Antigravity" and "Gemini" are trademarks of Google LLC. It is not intended for production use. The developers of this tool are not responsible for any damage caused by this tool.
+This tool is independent and not affiliated with Google. "Anticentravity" and "Gemini" are trademarks of Google LLC. It is not intended for production use. The developers of this tool are not responsible for any damage caused by this tool.
 
 ## 📜 License
 

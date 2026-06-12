@@ -1,10 +1,10 @@
 <div align="center">
   <br />
-  <img src=".github/assets/google-antigravity-logo.svg" width="200" />
+  <img src=".github/assets/google-anticentravity-logo.svg" width="200" />
   <br />
-  <h1>Open-Antigravity</h1>
+  <h1>Open-Anticentravity</h1>
 
-  [下载](https://antigravity.google)
+  [下载](https://anticentravity.google)
   <p><b>用于代理开发的开源通用 AI 网关</b></p>
   <p>
     <i>一个开放的、社区驱动的努力，旨在为专有的代理编码平台构建一个真正的模型无关的替代方案。</i>
@@ -20,7 +20,7 @@
 
 ---
 
-**Open-Antigravity** 不仅仅是另一个代码编辑器或 AI 助手。它是一个雄心勃勃的开源项目，旨在构建一个 Web 原生的、**代理优先**的集成开发环境 (IDE)。与将您锁定在单个 AI 生态系统中的专有平台不同，Open-Antigravity 从头开始设计，旨在成为**任何 LLM 的通用网关**。我们的目标是创建一个平台，让开发人员可以将复杂的任务委托给自主的 AI 代理，并由他们选择的模型提供支持。
+**Open-Anticentravity** 不仅仅是另一个代码编辑器或 AI 助手。它是一个雄心勃勃的开源项目，旨在构建一个 Web 原生的、**代理优先**的集成开发环境 (IDE)。与将您锁定在单个 AI 生态系统中的专有平台不同，Open-Anticentravity 从头开始设计，旨在成为**任何 LLM 的通用网关**。我们的目标是创建一个平台，让开发人员可以将复杂的任务委托给自主的 AI 代理，并由他们选择的模型提供支持。
 
 如果您相信以下几点，那么这个项目就适合您：
 - **真正的模型自由：** 构建一个不依赖于单个 AI 提供商的未来。
@@ -32,14 +32,14 @@
 
 我们的目标是构建一个重新定义开发人员生产力的平台。以下是我们正在努力实现的关键功能：
 
-- **🌌 集各家之长：** 旨在将 Claude Desktop、Cursor、Windsurf、Kiro、Trae、Trae CN、Qoder 和 Antigravity 的最佳功能融合到一个单一、内聚的体验中。
+- **🌌 集各家之长：** 旨在将 Claude Desktop、Cursor、Windsurf、Kiro、Trae、Trae CN、Qoder 和 Anticentravity 的最佳功能融合到一个单一、内聚的体验中。
 
 - **✨ 谷歌尖端技术：** 融合了 **Google CodeMender** 强大的代码修复能力和 **Google Jules** 的先进推理能力，提供最先进的代码生成、调试和理解。
 
 - **🔒 隐私第一：** 不会将任何代码信息、环境信息、操作系统信息或用户信息或使用模式发送给谷歌。
 
 - **🔌 通用 LLM 网关：**
-  摆脱供应商锁定。Open-Antigravity 被设计为大型语言模型的通用转换层。可以连接从 OpenAI 的 GPT-5、Anthropic 的 Claude 和 Google 的 Gemini 到 Llama、Grok 和 Qwen 等开放模型，或 Deepseek 和 Kimi 等专用 API 的任何东西。统一的界面意味着您的代理和工具可以在所有这些模型上无缝工作。
+  摆脱供应商锁定。Open-Anticentravity 被设计为大型语言模型的通用转换层。可以连接从 OpenAI 的 GPT-5、Anthropic 的 Claude 和 Google 的 Gemini 到 Llama、Grok 和 Qwen 等开放模型，或 Deepseek 和 Kimi 等专用 API 的任何东西。统一的界面意味着您的代理和工具可以在所有这些模型上无缝工作。
 
 - **🤖 代理优先的工作流程：**
   将“为用户身份验证实现新的 API 端点”或“重构数据库模式并更新所有相关服务”等高级任务委托给由您选择的 LLM 提供支持的 AI 代理。
@@ -62,7 +62,7 @@
 
 ## 🏛️ 高级架构
 
-Open-Antigravity 被设计为一个模块化的、容器原生的应用程序，您可以在任何地方运行。
+Open-Anticentravity 被设计为一个模块化的、容器原生的应用程序，您可以在任何地方运行。
 
 ```
 ┌──────────────────────────┐
@@ -128,8 +128,8 @@ Open-Antigravity 被设计为一个模块化的、容器原生的应用程序，
 
 1.  **克隆存储库：**
     ```bash
-    git clone https://github.com/ishandutta2007/open-antigravity.git
-    cd open-antigravity
+    git clone https://github.com/ishandutta2007/open-anticentravity.git
+    cd open-anticentravity
     ```
 
 2.  **设置环境变量：**
@@ -142,27 +142,27 @@ Open-Antigravity 被设计为一个模块化的、容器原生的应用程序，
     ```bash
     docker-compose up --build
     ```
-    这将构建所有服务并启动 Open-Antigravity 平台。您可以在 `http://localhost:3000` 访问它。
+    这将构建所有服务并启动 Open-Anticentravity 平台。您可以在 `http://localhost:3000` 访问它。
 
 ## 🙌 如何贡献
 
 我们相信这个雄心勃勃的项目只有作为一个社区才能实现。我们欢迎每个人的贡献，无论您是开发人员、设计师、技术作家，还是仅仅是一个爱好者。
 
 - **查看 [贡献指南](./CONTRIBUTING.md)** 以了解我们的开发流程以及如何开始。
-- **查看 [未解决的问题](https://github.com/ishandutta2007/open-antigravity/issues)** 以找到您感兴趣的任务。
+- **查看 [未解决的问题](https://github.com/ishandutta2007/open-anticentravity/issues)** 以找到您感兴趣的任务。
 - **加入我们的 [Discord 服务器](https://discord.com/invite/jc4xtF58Ve)** 与团队和其他贡献者聊天。
 
 
 ## Star 历史
 
-[![Star 历史图表](https://api.star-history.com/svg?repos=ishandutta2007/open-antigravity&type=date&legend=top-left)](https://www.star-history.com/#ishandutta2007/open-antigravity&type=date&legend=top-left)
+[![Star 历史图表](https://api.star-history.com/svg?repos=ishandutta2007/open-anticentravity&type=date&legend=top-left)](https://www.star-history.com/#ishandutta2007/open-anticentravity&type=date&legend=top-left)
 
 
 
 
 ## 📜 免责声明
 
-此工具是独立的，与谷歌无关。“Antigravity” 和 “Gemini” 是谷歌有限责任公司的商标。它不适用于生产环境。此工具的开发人员不对因此工具造成的任何损害负责。
+此工具是独立的，与谷歌无关。“Anticentravity” 和 “Gemini” 是谷歌有限责任公司的商标。它不适用于生产环境。此工具的开发人员不对因此工具造成的任何损害负责。
 
 ## 📜 许可证
 

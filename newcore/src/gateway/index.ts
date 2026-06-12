@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Model Gateway
+// OpenCentravity — Model Gateway
 // Universal LLM router with pluggable providers and fallback.
 // ═══════════════════════════════════════════════════════════════
 

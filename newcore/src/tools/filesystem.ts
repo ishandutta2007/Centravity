@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Filesystem Tools
+// OpenCentravity — Filesystem Tools
 // Read, write, list, and watch files with policy enforcement.
 // ═══════════════════════════════════════════════════════════════
 

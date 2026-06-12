@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design document outlines the architecture and implementation for building an AI-powered Integrated Development Environment (IDE) inspired by tools like Google Antigravity and Cursor. The goal is to create an "Agentic IDE" that leverages AI agents to automate coding tasks, provide intelligent autocomplete, and enable natural language-based development. This IDE will be built as a fork of Visual Studio Code (VS Code), extending it with AI capabilities to handle complex tasks autonomously while allowing user oversight.
+This design document outlines the architecture and implementation for building an AI-powered Integrated Development Environment (IDE) inspired by tools like Google Anticentravity and Cursor. The goal is to create an "Agentic IDE" that leverages AI agents to automate coding tasks, provide intelligent autocomplete, and enable natural language-based development. This IDE will be built as a fork of Visual Studio Code (VS Code), extending it with AI capabilities to handle complex tasks autonomously while allowing user oversight.
 
 Key features include:
 - **AI Autocomplete and Code Generation**: Predictive suggestions and multi-line edits based on context.
@@ -140,7 +140,7 @@ This flowchart illustrates the iterative process of an agent handling a task, en
 
 ### Table 1: Comparison with Inspirations
 
-| Feature                  | Proposed IDE                  | Google Antigravity                                                                 | Cursor AI                                                                 |
+| Feature                  | Proposed IDE                  | Google Anticentravity                                                                 | Cursor AI                                                                 |
 |--------------------------|-------------------------------|------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
 | Base                     | VS Code Fork                 | VS Code Fork                                                                       | VS Code Fork                                                              |
 | AI Models                | Gemini, GPT, Claude          | Gemini 3 (Pro, Deep Think, Flash)                                                  | GPT-5.2, Anthropic, Gemini, xAI                                          |
@@ -164,10 +164,10 @@ This table highlights similarities and customizations in the proposed design.
 
 ## Detailed Survey of AI-Powered Agentic IDE Design
 
-Building an AI-powered IDE like Google Antigravity or Cursor represents a shift toward "agent-first" development, where AI doesn't just assist but autonomously handles tasks. This survey expands on the design, drawing from real-world implementations to provide a comprehensive blueprint. It includes deeper technical details, rationale, and extensions for advanced features.
+Building an AI-powered IDE like Google Anticentravity or Cursor represents a shift toward "agent-first" development, where AI doesn't just assist but autonomously handles tasks. This survey expands on the design, drawing from real-world implementations to provide a comprehensive blueprint. It includes deeper technical details, rationale, and extensions for advanced features.
 
 ### Conceptual Foundation
-Traditional IDEs like VS Code focus on tools for human coders. Agentic IDEs evolve this by integrating AI agents—autonomous entities that plan, code, verify, and iterate with minimal intervention. Inspired by Google Antigravity's emphasis on trust-building through artifacts and Cursor's multi-agent collaboration, the design prioritizes verifiability and scalability.
+Traditional IDEs like VS Code focus on tools for human coders. Agentic IDEs evolve this by integrating AI agents—autonomous entities that plan, code, verify, and iterate with minimal intervention. Inspired by Google Anticentravity's emphasis on trust-building through artifacts and Cursor's multi-agent collaboration, the design prioritizes verifiability and scalability.
 
 Research suggests that such systems can accelerate development by 2-5x for repetitive tasks, though they require careful handling of AI limitations like context windows (typically 128k-1M tokens). Evidence from tools like Cursor shows 70% code generation in workflows, but success depends on prompt optimization and context injection.
 
@@ -259,10 +259,10 @@ Deployment: Package as .exe/.dmg/.deb; host on GitHub for open-source.
 This design provides a robust foundation, adaptable to evolving AI tech.
 
 ## Key Citations
-- [Google Antigravity Official Site](https://antigravity.google/) 
-- [Reddit Discussion on Antigravity](https://www.reddit.com/r/google/comments/1p10ev8/has_anyone_tried_antigravity_by_google_thoughts) 
-- [Google Antigravity Codelab](https://codelabs.developers.google.com/getting-started-google-antigravity) 
-- [Wikipedia on Google Antigravity](https://en.wikipedia.org/wiki/Google_Antigravity) 
+- [Google Anticentravity Official Site](https://anticentravity.google/) 
+- [Reddit Discussion on Anticentravity](https://www.reddit.com/r/google/comments/1p10ev8/has_anyone_tried_anticentravity_by_google_thoughts) 
+- [Google Anticentravity Codelab](https://codelabs.developers.google.com/getting-started-google-anticentravity) 
+- [Wikipedia on Google Anticentravity](https://en.wikipedia.org/wiki/Google_Anticentravity) 
 - [Cursor AI Official Site](https://www.cursor.com/) 
 - [Blog on How Cursor Works](https://blog.sshh.io/p/how-cursor-ai-ide-works) 
 - [DataCamp Tutorial on Cursor](https://www.datacamp.com/tutorial/cursor-ai-code-editor)

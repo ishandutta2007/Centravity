@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Liquid Working Memory (LWM) Engine
+// OpenCentravity — Liquid Working Memory (LWM) Engine
 // Mathematical state-space memory using discretized differential
 // equations and Hebbian plasticity for agent context control.
 // ═══════════════════════════════════════════════════════════════

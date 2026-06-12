@@ -1,7 +1,7 @@
 {
   "name": "mitmserver",
   "version": "1.0.0",
-  "description": "A man-in-the-middle server for intercepting requests from the official Antigravity application.",
+  "description": "A man-in-the-middle server for intercepting requests from the official Anticentravity application.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

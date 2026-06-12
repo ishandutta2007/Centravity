@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — REST + WebSocket API Server
+// OpenCentravity — REST + WebSocket API Server
 // Exposes the engine over HTTP for any frontend to consume.
 // ═══════════════════════════════════════════════════════════════
 
@@ -15,7 +15,7 @@ export async function startServer(orchestrator?: AgentOrchestrator) {
   const app = Fastify({ logger: { level: config.logLevel } });
 
   // ── Health ──
-  app.get('/health', async () => ({ status: 'ok', engine: 'OpenGravity', version: '0.1.0' }));
+  app.get('/health', async () => ({ status: 'ok', engine: 'OpenCentravity', version: '0.1.0' }));
 
   // ── Engine Info ──
   app.get('/info', async () => engine.getEngineInfo());
@@ -152,7 +152,7 @@ export async function startServer(orchestrator?: AgentOrchestrator) {
   // ── Start ──
   try {
     await app.listen({ port: config.port, host: config.host });
-    console.log(`\n  ⚡ OpenGravity Engine API running at http://${config.host}:${config.port}\n`);
+    console.log(`\n  ⚡ OpenCentravity Engine API running at http://${config.host}:${config.port}\n`);
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);

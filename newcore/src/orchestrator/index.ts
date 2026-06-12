@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Agent Orchestrator
+// OpenCentravity — Agent Orchestrator
 // Central coordinator: creates, manages, and monitors agents.
 // ═══════════════════════════════════════════════════════════════
 
@@ -113,7 +113,7 @@ export class AgentOrchestrator extends EventEmitter {
     const auditStats = this.audit.getStats();
 
     return {
-      name: 'OpenGravity Engine',
+      name: 'OpenCentravity Engine',
       version: '0.1.0',
       defaultModel: config.defaultModel,
       availableProviders,

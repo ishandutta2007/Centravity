@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Anthropic Provider
+// OpenCentravity — Anthropic Provider
 // ═══════════════════════════════════════════════════════════════
 
 import type {

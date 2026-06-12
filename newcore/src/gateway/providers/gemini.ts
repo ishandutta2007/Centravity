@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Google Gemini Provider
+// OpenCentravity — Google Gemini Provider
 // Connects to Google AI Studio / Vertex AI.
 // ═══════════════════════════════════════════════════════════════
 

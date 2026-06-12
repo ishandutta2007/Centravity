@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Z3 Formal Verification Tool
+// OpenCentravity — Z3 Formal Verification Tool
 // Uses actual Microsoft Z3 WASM solver for SMT-LIB2 verification.
 // ═══════════════════════════════════════════════════════════════
 

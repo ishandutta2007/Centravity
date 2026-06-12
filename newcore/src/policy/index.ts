@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Policy & Safety Engine
+// OpenCentravity — Policy & Safety Engine
 // Controls what agents can and cannot do. Default-deny for
 // destructive operations.
 // ═══════════════════════════════════════════════════════════════

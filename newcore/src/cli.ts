@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════
-// OpenGravity — Command Line Interface
+// OpenCentravity — Command Line Interface
 // The primary user-facing surface for the engine.
 // ═══════════════════════════════════════════════════════════════
 
@@ -12,8 +12,8 @@ import { startServer } from './server.js';
 const program = new Command();
 
 program
-  .name('opengravity')
-  .description('OpenGravity Engine — Universal AI Agent Orchestrator with Formal Verification')
+  .name('opencentravity')
+  .description('OpenCentravity Engine — Universal AI Agent Orchestrator with Formal Verification')
   .version('0.1.0');
 
 // ── Run Agent ──
@@ -28,7 +28,7 @@ program
     const config = loadConfig();
     const engine = new AgentOrchestrator();
 
-    console.log('\n  ⚡ OpenGravity Engine v0.1.0');
+    console.log('\n  ⚡ OpenCentravity Engine v0.1.0');
     console.log('  ════════════════════════════════\n');
 
     const info = await engine.getEngineInfo();
@@ -99,7 +99,7 @@ program
     const engine = new AgentOrchestrator();
     const model = opts.model ?? config.defaultModel;
 
-    console.log(`\n  ⚡ OpenGravity Chat (model: ${model})`);
+    console.log(`\n  ⚡ OpenCentravity Chat (model: ${model})`);
     console.log('  Type your message and press Enter. Ctrl+C to exit.\n');
 
     const readline = await import('readline');
@@ -181,7 +181,7 @@ program
     const engine = new AgentOrchestrator();
     const info = await engine.getEngineInfo();
 
-    console.log('\n  ⚡ OpenGravity Engine Status');
+    console.log('\n  ⚡ OpenCentravity Engine Status');
     console.log('  ═══════════════════════════════');
     console.log(`  Version: ${info.version}`);
     console.log(`  Default Model: ${info.defaultModel}`);

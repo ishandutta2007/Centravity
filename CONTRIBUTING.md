@@ -1,6 +1,6 @@
-# Contributing to Open Antigravity
+# Contributing to Open Anticentravity
 
-First off, thank you for considering contributing to Open Antigravity! It's people like you that make Open Antigravity such a great tool.
+First off, thank you for considering contributing to Open Anticentravity! It's people like you that make Open Anticentravity such a great tool.
 
 ## Where do I go from here?
 
